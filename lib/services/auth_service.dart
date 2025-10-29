@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:lagfrontend/models/auth_response_model.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:lagfrontend/config/app_config.dart';
+import 'package:lagfrontend/utils/custom_http_client.dart';
 
 class UnauthorizedException implements Exception {
   final String message;
@@ -13,8 +15,8 @@ class UnauthorizedException implements Exception {
 }
 
 class AuthService {
-  final String _baseUrl = 'http://10.0.2.2:3000/api/users'; // URL de tu backend
-  FlutterSecureStorage storage;
+  final String _baseUrl = AppConfig.usersApiUrl; // URL configurada según entorno
+  final FlutterSecureStorage storage;
   final http.Client _client;
 
   /// Permite inyectar un storage y cliente HTTP (útil para tests). 
@@ -23,7 +25,7 @@ class AuthService {
     FlutterSecureStorage? storage,
     http.Client? client,
   }) : storage = storage ?? const FlutterSecureStorage(),
-       _client = client ?? http.Client();
+       _client = client ?? CustomHttpClient();
 
   // 🟢 1. Función clave para obtener encabezados con el token
   Future<Map<String, String>> _getAuthHeaders() async {

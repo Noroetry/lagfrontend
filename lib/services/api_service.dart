@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:lagfrontend/config/app_config.dart';
 
 class ApiService {
-  final String _baseUrl = 'http://10.0.2.2:3000/api/users';
+  final String _baseUrl = AppConfig.usersApiUrl;
   final storage = const FlutterSecureStorage();
 
   Future<Map<String, String>> _getHeaders() async {
