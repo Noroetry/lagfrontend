@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:lagfrontend/models/user_model.dart';
@@ -6,8 +7,8 @@ import 'package:jwt_decoder/jwt_decoder.dart'; // <-- Necesitarás añadir este 
 
 class AuthController extends ChangeNotifier {
   // 🟢 1. Instancia de Storage
-  final storage = const FlutterSecureStorage();
-  final AuthService _authService = AuthService();
+  final FlutterSecureStorage storage;
+  final AuthService _authService;
   
   User? _currentUser;
   String? _authToken;
@@ -21,9 +22,13 @@ class AuthController extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  AuthController() {
-    // 🟢 Llamar a la verificación de estado al construir el controlador
-    checkAuthenticationStatus(); 
+  /// Ahora permite inyección de dependencias (storage y authService).
+  /// Si no se proveen, se usan las implementaciones por defecto.
+  AuthController({FlutterSecureStorage? storage, AuthService? authService})
+      : storage = storage ?? const FlutterSecureStorage(),
+        _authService = authService ?? AuthService() {
+    // Llamar a la verificación de estado al construir el controlador
+    checkAuthenticationStatus();
   }
 
   void _setLoading(bool value) {
@@ -41,14 +46,23 @@ class AuthController extends ChangeNotifier {
   // 🟢 3. Función para verificar si hay un token guardado al inicio
   Future<void> checkAuthenticationStatus() async {
     _setLoading(true);
-    final storedToken = await storage.read(key: 'jwt_token');
+    String? storedToken;
+    try {
+      storedToken = await storage.read(key: 'jwt_token');
+      debugPrint('🔐 [Auth Check] Token encontrado: ${storedToken?.substring(0, 10)}...');
+    } catch (e) {
+      // Error leyendo storage: tratamos como no autenticado
+      storedToken = null;
+    }
 
     if (storedToken != null) {
       try {
         // Asumiendo que el token contiene info básica o lo verificaremos en un '/me' endpoint
         // Por ahora, asumimos que si existe y es decodificable, está bien.
         if (JwtDecoder.isExpired(storedToken)) {
+          try {
             await storage.delete(key: 'jwt_token'); // Token expirado, lo borramos
+          } catch (_) {}
             _authToken = null;
             _currentUser = null;
         } else {
@@ -66,7 +80,9 @@ class AuthController extends ChangeNotifier {
         }
       } catch (e) {
         // Error de decodificación (token corrupto)
-        await storage.delete(key: 'jwt_token');
+        try {
+          await storage.delete(key: 'jwt_token');
+        } catch (_) {}
         _authToken = null;
         _currentUser = null;
       }
@@ -80,13 +96,17 @@ class AuthController extends ChangeNotifier {
     _setLoading(true);
     _setErrorMessage(null);
     try {
-      final response = await _authService.login(usernameOrEmail, password); 
+  final response = await _authService.login(usernameOrEmail, password);
       _currentUser = response.user;
       _authToken = response.token; 
       
       // 🟢 4. Guardar token tras login exitoso
       if (_authToken != null) {
-        await storage.write(key: 'jwt_token', value: _authToken!);
+        try {
+          await storage.write(key: 'jwt_token', value: _authToken!);
+        } catch (e) {
+          _setErrorMessage('Error al guardar credenciales localmente');
+        }
       }
       notifyListeners();
     } catch (e) {
@@ -102,14 +122,18 @@ class AuthController extends ChangeNotifier {
     _setLoading(true);
     _setErrorMessage(null);
     try {
-      final response = await _authService.register(username, email, password);
+  final response = await _authService.register(username, email, password);
       
       _currentUser = response.user;
       _authToken = response.token; 
       
       // 🟢 CAMBIO: Lógica para guardar el token después del registro exitoso
       if (_authToken != null) {
-        await storage.write(key: 'jwt_token', value: _authToken!);
+        try {
+          await storage.write(key: 'jwt_token', value: _authToken!);
+        } catch (e) {
+          _setErrorMessage('Error al guardar credenciales localmente');
+        }
       }
       
       notifyListeners(); // Notificar a los listeners del cambio de estado
@@ -123,10 +147,15 @@ class AuthController extends ChangeNotifier {
     }
   }
 
-  void logout() async {
+  Future<void> logout() async {
     _currentUser = null;
     _authToken = null;
-    await storage.delete(key: 'jwt_token'); // 🟢 6. Eliminar el token
+    try {
+      await storage.delete(key: 'jwt_token'); // Eliminar el token
+    } catch (e) {
+      // Si falló el borrado, no hacemos nada más; el token en memoria ya se
+      // ha limpiado. Podríamos loggear esto si tuvieras un logger.
+    }
     notifyListeners();
   }
 }

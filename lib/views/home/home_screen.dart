@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lagfrontend/controllers/auth_controller.dart';
-import 'package:lagfrontend/views/auth/auth_screen.dart'; // Para regresar
+import 'package:lagfrontend/views/auth/auth_gate.dart'; // Para regresar
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -20,7 +20,7 @@ class HomeScreen extends StatelessWidget {
               authController.logout();
               // Vuelve a la pantalla de autenticación
               Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (context) => const AuthScreen()),
+                MaterialPageRoute(builder: (context) => const AuthGate()),
                 (Route<dynamic> route) => false,
               );
             },
