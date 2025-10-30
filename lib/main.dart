@@ -29,10 +29,8 @@ class MyApp extends StatelessWidget {
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
       home: const AuthGate(),
-      // Aquí puedes definir rutas nombradas si prefieres
       routes: {
         '/home': (context) => const HomeScreen(),
-        // Otras rutas...
       },
     );
   }
