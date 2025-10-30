@@ -59,8 +59,9 @@ class AuthController extends ChangeNotifier {
         debugPrint('❌ [Auth Check] Error leyendo todas las claves del storage: $e');
       }
 
-      storedToken = await storage.read(key: 'jwt_token');
-      debugPrint('🔐 [Auth Check] Token encontrado raw: ${storedToken == null ? 'null' : storedToken.substring(0, 10) + '...'}');
+  storedToken = await storage.read(key: 'jwt_token');
+  final tokenPreview = storedToken == null ? 'null' : '${storedToken.substring(0, 10)}...';
+  debugPrint('🔐 [Auth Check] Token encontrado raw: $tokenPreview');
     } catch (e) {
       // Error leyendo storage: tratamos como no autenticado
       storedToken = null;
