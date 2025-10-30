@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:lagfrontend/models/auth_response_model.dart';
+import 'package:lagfrontend/models/user_model.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:lagfrontend/config/app_config.dart';
 import 'package:lagfrontend/utils/custom_http_client.dart';
@@ -107,6 +108,28 @@ class AuthService {
       throw UnauthorizedException('Acceso denegado. Token expirado/inválido.');
     } else {
       throw Exception('Fallo al cargar usuarios: ${response.statusCode}');
+    }
+  }
+
+  /// Valida el token con el backend y devuelve el perfil del usuario (/me).
+  Future<User> getProfile() async {
+    final headers = await _getAuthHeaders();
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/me'),
+      headers: headers,
+    );
+
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      return User.fromJson(json);
+    } else if (response.statusCode == 401) {
+      // Token inválido en backend: limpiar storage y propagar
+      try {
+        await storage.delete(key: 'jwt_token');
+      } catch (_) {}
+      throw UnauthorizedException('Acceso denegado. Token inválido en servidor.');
+    } else {
+      throw Exception('Fallo al obtener perfil: ${response.statusCode}');
     }
   }
 }
