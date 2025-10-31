@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:lagfrontend/controllers/auth_controller.dart';
 import 'package:lagfrontend/views/auth/auth_gate.dart'; 
 import 'package:lagfrontend/views/home/home_screen.dart'; 
+import 'package:lagfrontend/theme/app_theme.dart';
 
 
 void main() {
@@ -24,10 +25,8 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Life As Game',
-      theme: ThemeData(
-        primarySwatch: Colors.blueGrey,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-      ),
+      theme: AppTheme.dark(),
+      debugShowCheckedModeBanner: false,
       home: const AuthGate(),
       routes: {
         '/home': (context) => const HomeScreen(),

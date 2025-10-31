@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lagfrontend/controllers/auth_controller.dart';
+import 'package:lagfrontend/widgets/app_background.dart';
+import 'package:lagfrontend/widgets/popup_form.dart';
+import 'package:lagfrontend/widgets/reusable_input.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -23,105 +26,86 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  void _submitRegister() async {
-    if (_formKey.currentState!.validate()) {
-      final authController = Provider.of<AuthController>(context, listen: false);
-      await authController.registerAndLogin(
-        _usernameController.text,
-        _emailController.text,
-        _passwordController.text,
-      );
-
-      if (!mounted) return;
-
-      if (authController.isAuthenticated) {
-        Navigator.of(context).pushReplacementNamed('/home');
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(authController.errorMessage ?? 'Error desconocido al registrarse')),
-        );
-      }
+  Future<void> _submitRegister() async {
+    if (!_formKey.currentState!.validate()) return;
+    final authController = Provider.of<AuthController>(context, listen: false);
+    await authController.registerAndLogin(
+      _usernameController.text.trim(),
+      _emailController.text.trim(),
+      _passwordController.text,
+    );
+    if (!mounted) return;
+    if (authController.isAuthenticated) {
+      Navigator.of(context).pushReplacementNamed('/home');
     }
+    // If not authenticated, the inline error message (below) will show.
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Registrarse'),
-      ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                TextFormField(
-                  controller: _usernameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nombre de Usuario',
-                    border: OutlineInputBorder(),
+      body: AppBackground(
+        child: Center(
+          child: PopupForm(
+            icon: const Icon(Icons.person_add, color: Colors.white, size: 18),
+            title: 'REGISTRO',
+            actions: [
+              Consumer<AuthController>(builder: (context, authController, _) {
+                if (authController.isLoading) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8.0),
+                    child: SizedBox(width: 28, height: 28, child: CircularProgressIndicator(strokeWidth: 2)),
+                  );
+                }
+                return PopupActionButton(label: 'Registrar', onPressed: _submitRegister);
+              }),
+              PopupActionButton(label: 'Volver', onPressed: () => Navigator.of(context).maybePop()),
+            ],
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ReusableTextField(
+                    controller: _usernameController,
+                    label: 'Nombre de usuario',
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) return '';
+                      return null;
+                    },
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Por favor, introduce tu nombre de usuario';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16.0),
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 12),
+                  ReusableTextField(
+                    controller: _emailController,
+                    label: 'Email',
+                    keyboardType: TextInputType.emailAddress,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) return '';
+                      if (!value.contains('@')) return '';
+                      return null;
+                    },
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Por favor, introduce tu email';
-                    }
-                    if (!value.contains('@')) {
-                      return 'Introduce un email válido';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16.0),
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Contraseña',
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 12),
+                  ReusableTextField(
+                    controller: _passwordController,
+                    label: 'Contraseña',
+                    obscureText: true,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) return '';
+                      return null;
+                    },
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Por favor, introduce tu contraseña';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 32.0),
-                Consumer<AuthController>(
-                  builder: (context, authController, child) {
-                    return authController.isLoading
-                        ? const CircularProgressIndicator()
-                        : ElevatedButton(
-                            onPressed: _submitRegister,
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            child: const Text('Registrarme', style: TextStyle(fontSize: 18)),
-                          );
-                  },
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  Consumer<AuthController>(builder: (context, authController, _) {
+                    if (authController.errorMessage == null || authController.errorMessage!.isEmpty) return const SizedBox.shrink();
+                    return Text(
+                      authController.errorMessage!,
+                      style: const TextStyle(color: Colors.redAccent),
+                      textAlign: TextAlign.center,
+                    );
+                  }),
+                ],
+              ),
             ),
           ),
         ),

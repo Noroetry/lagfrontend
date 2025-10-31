@@ -21,6 +21,13 @@ class AppConfig {
   // Configuración de seguridad
   static const bool validateSSLCertificate = true; // Poner en false solo si hay problemas con certificados en desarrollo
   
+  // Optional background image for the app (relative asset path). Leave empty to use procedural fog.
+  // Example: 'assets/images/background.jpg'
+  // No background image by default; use a solid dark background color instead.
+  // No background image by default; use solid dark background color instead.
+  // Leave empty to avoid loading any image asset as background.
+  static const String backgroundImagePath = '';
+
   // IP addresses permitidas de Render (para validación si es necesario)
   static const List<String> renderIpAddresses = [
     '44.229.227.142',
