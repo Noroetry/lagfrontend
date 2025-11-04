@@ -71,6 +71,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     label: 'Nombre de usuario',
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) return '';
+                      final v = value.trim().toLowerCase();
+                      if (v == 'system') return '';
                       return null;
                     },
                   ),

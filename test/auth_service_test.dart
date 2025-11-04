@@ -4,6 +4,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:lagfrontend/services/auth_service.dart';
+import 'package:lagfrontend/utils/exceptions.dart';
 
 class MockClient extends Mock implements http.Client {}
 class MockSecureStorage extends Mock implements FlutterSecureStorage {}

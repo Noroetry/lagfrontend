@@ -70,6 +70,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     keyboardType: TextInputType.emailAddress,
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) return '';
+                      final v = value.trim().toLowerCase();
+                      if (!v.contains('@') && v == 'system') return '';
                       return null;
                     },
                   ),
