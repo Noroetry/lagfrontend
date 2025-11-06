@@ -106,4 +106,42 @@ class AuthService implements IAuthService {
       throw ApiException('Fallo al obtener perfil: ${response.statusCode}');
     }
   }
+
+  /// Request a refresh using the server-side cookie (or alternative header/body).
+  @override
+  Future<AuthResponse> refresh() async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/refresh'),
+      headers: {'Content-Type': 'application/json'},
+      // No body by default; server will read cookie or header.
+    );
+
+    if (response.statusCode == 200) {
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is! Map<String, dynamic>) throw ApiException('Unexpected refresh response');
+        return AuthResponse.fromJson(decoded);
+      } catch (e) {
+        debugPrint('❌ [AuthService.refresh] failed to parse response: $e');
+        throw ApiException('Fallo al refrescar token: ${response.body}');
+      }
+    } else if (response.statusCode == 401) {
+      throw UnauthorizedException('Refresh token inválido o expirado');
+    } else {
+      throw ApiException('Fallo al refrescar token: ${response.statusCode}');
+    }
+  }
+
+  @override
+  Future<void> logout() async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/logout'),
+      headers: {'Content-Type': 'application/json'},
+    );
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      return;
+    }
+    // Non-fatal: throw to let caller react if desired
+    throw ApiException('Fallo logout servidor: ${response.statusCode}');
+  }
 }

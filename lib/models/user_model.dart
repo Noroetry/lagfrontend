@@ -31,7 +31,21 @@ class User {
     // Conservamos todos los campos extra en additionalData excluding the known ones
     final Map<String, dynamic> copy = Map<String, dynamic>.from(json);
 
-    final id = (copy.remove('_id') ?? '') as String;
+    // Support both '_id' (Mongo-like) and 'id' (numeric or string) from backend
+    dynamic rawId = copy.remove('_id');
+    rawId ??= copy.remove('id');
+    String id = '';
+    try {
+      if (rawId is int) {
+        id = rawId.toString();
+      } else if (rawId is String) {
+        id = rawId;
+      } else {
+        id = '';
+      }
+    } catch (_) {
+      id = '';
+    }
     final username = (copy.remove('username') ?? '') as String;
     final email = (copy.remove('email') ?? '') as String;
     final adminRaw = copy.remove('admin');

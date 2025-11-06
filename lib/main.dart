@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'package:lagfrontend/controllers/auth_controller.dart';
 import 'package:lagfrontend/controllers/messages_controller.dart';
+import 'package:lagfrontend/utils/cookie_client.dart';
 import 'package:lagfrontend/services/auth_service.dart';
 import 'package:lagfrontend/services/messages_service.dart';
 import 'package:lagfrontend/services/i_auth_service.dart';
@@ -16,8 +17,10 @@ void main() {
   runApp(
     MultiProvider(
       providers: [
-        Provider<IAuthService>(create: (_) => AuthService()),
-        Provider<IMessagesService>(create: (_) => MessagesService()),
+  // CookieClient persists HttpOnly cookies set by the server (refresh token)
+  Provider<CookieClient>(create: (_) => CookieClient()),
+  Provider<IAuthService>(create: (context) => AuthService(client: context.read<CookieClient>())),
+  Provider<IMessagesService>(create: (context) => MessagesService(client: context.read<CookieClient>())),
         
         ChangeNotifierProvider<AuthController>(
           create: (context) => AuthController(authService: context.read<IAuthService>()),

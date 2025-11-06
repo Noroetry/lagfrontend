@@ -18,9 +18,20 @@ class AuthResponse {
     }
 
     try {
+      // Try to locate token in multiple possible fields for robustness
+      String? token;
+      if (json['token'] != null) token = json['token'].toString();
+      token ??= json['accessToken']?.toString();
+      token ??= json['access_token']?.toString();
+      // Some backends may embed the access token inside the user object
+      if (token == null) {
+        final candidate = rawUser['token'] ?? rawUser['accessToken'] ?? rawUser['access_token'];
+        if (candidate != null) token = candidate.toString();
+      }
+
       return AuthResponse(
         user: User.fromJson(rawUser),
-        token: json['token']?.toString(),
+        token: token,
       );
     } catch (e) {
       throw Exception('AuthResponse.fromJson: failed to parse user: $e; Raw: ${jsonEncode(json)}');

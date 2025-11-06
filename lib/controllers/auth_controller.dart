@@ -54,24 +54,51 @@ class AuthController extends ChangeNotifier {
         return;
       }
 
-      // Comprobar expiración localmente
+      // Comprobar expiración localmente y/o intentar refresh si está próximo a expirar
       try {
-        if (JwtDecoder.isExpired(storedToken)) {
+        final now = DateTime.now();
+        DateTime exp;
+        try {
+          exp = JwtDecoder.getExpirationDate(storedToken);
+        } catch (e) {
+          if (kDebugMode) debugPrint('❌ [Auth Check] Error decodificando token: $e');
+          // If we can't decode, try to refresh once
+          exp = now.subtract(const Duration(seconds: 1));
+        }
+
+        final timeLeft = exp.difference(now);
+        final needsRefresh = timeLeft.inMinutes <= 5; // refresh if <= 5 minutes left or already expired
+
+        if (needsRefresh) {
+          // Try refresh first (server reads refresh cookie or header)
           try {
-            await storage.delete(key: 'jwt_token');
-          } catch (_) {}
-          _authToken = null;
-          _currentUser = null;
-          return;
+            final refreshed = await _authService.refresh();
+            _authToken = refreshed.token;
+            _currentUser = refreshed.user;
+            try {
+              if (_authToken != null) await storage.write(key: 'jwt_token', value: _authToken!);
+            } catch (_) {}
+            if (kDebugMode) debugPrint('🔄 [Auth Check] Token refrescado exitosamente');
+            return;
+          } on UnauthorizedException catch (e) {
+            if (kDebugMode) debugPrint('⚠️ [Auth Check] Refresh rechazado: $e');
+            try {
+              await storage.delete(key: 'jwt_token');
+            } catch (_) {}
+            _authToken = null;
+            _currentUser = null;
+            _setErrorMessage('Sesión expirada');
+            return;
+          } catch (e) {
+            if (kDebugMode) debugPrint('❌ [Auth Check] Error refrescando token: $e');
+            _authToken = null;
+            _currentUser = null;
+            _setErrorMessage('Error refrescando sesión: $e');
+            return;
+          }
         }
       } catch (e) {
-        if (kDebugMode) debugPrint('❌ [Auth Check] Error decodificando token: $e');
-        try {
-          await storage.delete(key: 'jwt_token');
-        } catch (_) {}
-        _authToken = null;
-        _currentUser = null;
-        return;
+        if (kDebugMode) debugPrint('❌ [Auth Check] Error procesando expiración: $e');
       }
 
       // Token localmente válido: validar contra backend (/me)
@@ -82,13 +109,30 @@ class AuthController extends ChangeNotifier {
         _currentUser = profile;
         if (kDebugMode) debugPrint('✅ [Auth Check] Perfil obtenido: ${profile.username}');
       } on UnauthorizedException catch (e) {
-        if (kDebugMode) debugPrint('⚠️ [Auth Check] Token rechazado por backend: $e');
+        if (kDebugMode) debugPrint('⚠️ [Auth Check] Token rechazado por backend: $e — intentando refresh');
+        // Try one refresh attempt
         try {
-          await storage.delete(key: 'jwt_token');
-        } catch (_) {}
-        _authToken = null;
-        _currentUser = null;
-        _setErrorMessage('Token rechazado por backend');
+          final refreshed = await _authService.refresh();
+          _authToken = refreshed.token;
+          _currentUser = refreshed.user;
+          try {
+            if (_authToken != null) await storage.write(key: 'jwt_token', value: _authToken!);
+          } catch (_) {}
+          if (kDebugMode) debugPrint('🔄 [Auth Check] Token refrescado tras 401');
+        } on UnauthorizedException catch (e2) {
+          if (kDebugMode) debugPrint('⚠️ [Auth Check] Refresh falló tras 401: $e2');
+          try {
+            await storage.delete(key: 'jwt_token');
+          } catch (_) {}
+          _authToken = null;
+          _currentUser = null;
+          _setErrorMessage('Token rechazado por backend');
+        } catch (e2) {
+          if (kDebugMode) debugPrint('❌ [Auth Check] Error refrescando tras 401: $e2');
+          _authToken = null;
+          _currentUser = null;
+          _setErrorMessage('Error validando token: $e2');
+        }
       } catch (e) {
         if (kDebugMode) debugPrint('❌ [Auth Check] Error validando token: $e');
         _authToken = null;
@@ -119,6 +163,18 @@ class AuthController extends ChangeNotifier {
       final response = await _authService.login(usernameOrEmail, password);
       _currentUser = response.user;
       _authToken = response.token;
+
+      // If backend didn't return an access token but set a refresh cookie, try to refresh once
+      if (_authToken == null) {
+        try {
+          if (kDebugMode) debugPrint('🔁 [Auth Login] No access token in response, attempting refresh via cookie');
+          final refreshed = await _authService.refresh();
+          _authToken = refreshed.token;
+          _currentUser = refreshed.user;
+        } catch (e) {
+          if (kDebugMode) debugPrint('⚠️ [Auth Login] refresh attempt after login failed: $e');
+        }
+      }
 
       if (_authToken != null) {
         try {
@@ -176,6 +232,14 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    // First, try to inform server to invalidate refresh token
+    try {
+      await _authService.logout();
+    } catch (e) {
+      if (kDebugMode) debugPrint('⚠️ [Auth Logout] error calling server logout: $e');
+      // continue with client-side cleanup even if server call fails
+    }
+
     _currentUser = null;
     _authToken = null;
     try {
