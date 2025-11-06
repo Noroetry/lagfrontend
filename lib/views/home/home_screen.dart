@@ -34,18 +34,18 @@ class _HomeScreenState extends State<HomeScreen> {
           barrierColor: Colors.black45,
           builder: (ctx) => PopupForm(
             icon: const Icon(Icons.mail_outline, color: Colors.white),
-            title: 'Tienes mensajes sin leer',
-            description: 'Hay mensajes nuevos en tu bandeja de entrada. ¿Quieres verlos ahora?',
+            title: 'BUZÓN',
+            description: 'Tienes mensajes nuevos sin leer.¿Quieres abrir el buzón?',
             actions: [
               PopupActionButton(
-                label: 'Ver mensajes',
+                label: 'Si',
                 onPressed: () {
                   Navigator.of(ctx).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Abrir bandeja de entrada')));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Implementation in progress...')));
                 },
               ),
               PopupActionButton(
-                label: 'Cerrar',
+                label: 'No',
                 onPressed: () => Navigator.of(ctx).pop(),
               ),
             ],
@@ -79,7 +79,49 @@ class _HomeScreenState extends State<HomeScreen> {
     final authController = Provider.of<AuthController>(context);
 
     return Scaffold(
-      // No AppBar: the screen uses the app's scaffold background color from AppTheme
+      appBar: AppBar(
+        // No title text; background matches scaffold so it visually blends.
+        title: const SizedBox.shrink(),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.mail_outline),
+            tooltip: 'Mensajes',
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Messages not implemented yet')));
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.exit_to_app),
+            tooltip: 'Cerrar sesión',
+            onPressed: () async {
+              final navigator = Navigator.of(context);
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  content: const Text('¿Estás seguro que deseas cerrar sesión?'),
+                  // Center the action buttons to match requested UX
+                  actionsAlignment: MainAxisAlignment.center,
+                  actionsPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('No')),
+                    TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Sí')),
+                  ],
+                ),
+              );
+              if (confirmed == true) {
+                if (!mounted) return;
+                authController.logout();
+                navigator.pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const AuthGate()),
+                  (Route<dynamic> route) => false,
+                );
+              }
+            },
+          ),
+        ],
+      ),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
@@ -138,29 +180,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 }),
               ],
 
-              // Actions: Logout and Enter app
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ElevatedButton(
-                    onPressed: () {
-                      authController.logout();
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(builder: (context) => const AuthGate()),
-                        (Route<dynamic> route) => false,
-                      );
-                    },
-                    child: const Text('Cerrar sesión'),
-                  ),
-                  const SizedBox(width: 12),
-                  ElevatedButton(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ir al juego')));
-                    },
-                    child: const Text('Ir al juego'),
-                  ),
-                ],
-              ),
             ],
           ),
         ),

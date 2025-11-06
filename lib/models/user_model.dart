@@ -5,7 +5,9 @@ class User {
   final String id;
   final String username;
   final String email;
-  final bool isAdmin; // Asumimos que 'S'/'N' se convierte a bool
+  // Nivel de administración: entero entre 0 y 100.
+  // 0 = sin privilegios; >0 indica algún nivel administrativo.
+  final int adminLevel;
 
   // Map libre para cualquier campo adicional que el backend devuelva
   // (por ejemplo: displayName, avatarUrl, bio, settings, etc.).
@@ -17,10 +19,13 @@ class User {
     required this.id,
     required this.username,
     required this.email,
-    required this.isAdmin,
+    required this.adminLevel,
     this.additionalData = const {},
     this.messages = const [],
   });
+
+  // Helper booleano compatible con código antiguo: true si adminLevel > 0
+  bool get isAdmin => adminLevel > 0;
 
   factory User.fromJson(Map<String, dynamic> json) {
     // Conservamos todos los campos extra en additionalData excluding the known ones
@@ -30,7 +35,27 @@ class User {
     final username = (copy.remove('username') ?? '') as String;
     final email = (copy.remove('email') ?? '') as String;
     final adminRaw = copy.remove('admin');
-    final isAdmin = adminRaw == 'S';
+    int adminLevel = 0;
+    try {
+      if (adminRaw is int) {
+        adminLevel = adminRaw.clamp(0, 100).toInt();
+      } else if (adminRaw is String) {
+        final s = adminRaw.trim();
+        if (s.toUpperCase() == 'S' || s.toUpperCase() == 'Y' || s.toLowerCase() == 'true') {
+          adminLevel = 100;
+        } else if (s.toUpperCase() == 'N' || s.toLowerCase() == 'false') {
+          adminLevel = 0;
+        } else {
+          // try parse numeric string
+          final parsed = int.tryParse(s);
+          if (parsed != null) adminLevel = parsed.clamp(0, 100).toInt();
+        }
+      } else if (adminRaw is bool) {
+        adminLevel = adminRaw ? 100 : 0;
+      }
+    } catch (_) {
+      adminLevel = 0;
+    }
 
     // Extract messages if present and remove from additional map
     final rawMessages = copy.remove('messages');
@@ -58,7 +83,7 @@ class User {
       id: id,
       username: username,
       email: email,
-      isAdmin: isAdmin,
+      adminLevel: adminLevel,
       additionalData: copy,
       messages: messages,
     );
@@ -69,7 +94,7 @@ class User {
       '_id': id,
       'username': username,
       'email': email,
-      'admin': isAdmin ? 'S' : 'N',
+      'admin': adminLevel,
     };
     base.addAll(additionalData);
     if (messages.isNotEmpty) base['messages'] = messages.map((m) => m.toJson()).toList();

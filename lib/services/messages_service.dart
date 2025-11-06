@@ -1,43 +1,37 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:lagfrontend/config/app_config.dart';
 import 'package:lagfrontend/models/message_model.dart';
 import 'package:lagfrontend/services/i_messages_service.dart';
 import 'package:lagfrontend/utils/exceptions.dart';
-import 'package:lagfrontend/utils/custom_http_client.dart';
+// Use the standard http.Client; tests should mock http.Client directly.
 
 class MessagesService implements IMessagesService {
   final String _baseUrl = AppConfig.messagesApiUrl; // e.g. http://.../api/messages
-  final FlutterSecureStorage storage;
   final http.Client _client;
 
-  MessagesService({FlutterSecureStorage? storage, http.Client? client})
-      : storage = storage ?? const FlutterSecureStorage(),
-        _client = client ?? CustomHttpClient();
+  MessagesService({http.Client? client}) : _client = client ?? http.Client();
 
-  Future<Map<String, String>> _getAuthHeaders() async {
-    try {
-      final token = await storage.read(key: 'jwt_token');
-      return {
-        'Content-Type': 'application/json',
-        if (token != null) 'Authorization': 'Bearer $token',
-      };
-    } catch (e) {
-      return {'Content-Type': 'application/json'};
-    }
+  // MessagesService no longer reads secure storage. The controller must
+  // provide the JWT token for protected requests. Helper to build headers:
+  Map<String, String> _authHeadersFromToken(String token) {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
   }
 
   /// Send a message (POST /send)
   @override
   Future<Message> send({
+    required String token,
     required String title,
     required String description,
     required String destination,
     String? adjunts,
   }) async {
-    final headers = await _getAuthHeaders();
+    final headers = _authHeadersFromToken(token);
     final body = jsonEncode({
       'title': title,
       'description': description,
@@ -58,8 +52,8 @@ class MessagesService implements IMessagesService {
 
   /// Inbox (GET /inbox)
   @override
-  Future<List<Message>> inbox() async {
-    final headers = await _getAuthHeaders();
+  Future<List<Message>> inbox(String token) async {
+    final headers = _authHeadersFromToken(token);
     final response = await _client.get(Uri.parse('$_baseUrl/inbox'), headers: headers);
     if (response.statusCode == 200) {
       debugPrint('🔍 [MessagesService.inbox] raw: ${response.body}');
@@ -81,8 +75,8 @@ class MessagesService implements IMessagesService {
 
   /// Sent (GET /sent)
   @override
-  Future<List<Message>> sent() async {
-    final headers = await _getAuthHeaders();
+  Future<List<Message>> sent(String token) async {
+    final headers = _authHeadersFromToken(token);
     final response = await _client.get(Uri.parse('$_baseUrl/sent'), headers: headers);
     if (response.statusCode == 200) {
       debugPrint('🔍 [MessagesService.sent] raw: ${response.body}');
@@ -103,8 +97,8 @@ class MessagesService implements IMessagesService {
 
   /// Get message by id (GET /:id)
   @override
-  Future<Message> getById(String id) async {
-    final headers = await _getAuthHeaders();
+  Future<Message> getById(String token, String id) async {
+    final headers = _authHeadersFromToken(token);
     final response = await _client.get(Uri.parse('$_baseUrl/$id'), headers: headers);
     if (response.statusCode == 200) {
       debugPrint('🔍 [MessagesService.getById] raw: ${response.body}');
@@ -122,8 +116,8 @@ class MessagesService implements IMessagesService {
 
   /// Mark as read (PATCH /:id/read)
   @override
-  Future<Message> markRead(String id) async {
-    final headers = await _getAuthHeaders();
+  Future<Message> markRead(String token, String id) async {
+    final headers = _authHeadersFromToken(token);
     final response = await _client.patch(Uri.parse('$_baseUrl/$id/read'), headers: headers);
     if (response.statusCode == 200) {
       final decoded = jsonDecode(response.body);
@@ -138,8 +132,8 @@ class MessagesService implements IMessagesService {
 
   /// Change state (PATCH /:id/state) body { state: 'R' }
   @override
-  Future<Message> changeState(String id, String state) async {
-    final headers = await _getAuthHeaders();
+  Future<Message> changeState(String token, String id, String state) async {
+    final headers = _authHeadersFromToken(token);
     final response = await _client.patch(
       Uri.parse('$_baseUrl/$id/state'),
       headers: headers,
@@ -158,8 +152,8 @@ class MessagesService implements IMessagesService {
 
   /// Soft-delete (DELETE /:id) -> server marks state 'D'
   @override
-  Future<Message> deleteMessage(String id) async {
-    final headers = await _getAuthHeaders();
+  Future<Message> deleteMessage(String token, String id) async {
+    final headers = _authHeadersFromToken(token);
     final response = await _client.delete(Uri.parse('$_baseUrl/$id'), headers: headers);
     if (response.statusCode == 200) {
       final decoded = jsonDecode(response.body);

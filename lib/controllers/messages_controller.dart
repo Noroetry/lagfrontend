@@ -9,6 +9,10 @@ class MessagesController extends ChangeNotifier {
   List<Message> sent = [];
   bool _loaded = false;
   bool _popupShown = false; // whether we've already shown the unread popup
+  /// Temporary flag to enable/disable message popups while feature is incomplete.
+  /// Set to `false` to disable popup behavior; set to `true` to restore.
+  bool messagesActive = false;
+  String? _token;
 
   MessagesController({IMessagesService? service}) : _service = service ?? (throw ArgumentError.notNull('service'));
 
@@ -16,6 +20,7 @@ class MessagesController extends ChangeNotifier {
   void updateAuth(AuthController? auth) {
     if (auth != null && auth.isAuthenticated && !_loaded) {
       // Load inbox/sent lazily
+      _token = auth.authToken;
       loadInbox();
       loadSent();
     }
@@ -25,13 +30,18 @@ class MessagesController extends ChangeNotifier {
       sent = [];
       _loaded = false;
       _popupShown = false;
+      _token = null;
       notifyListeners();
     }
   }
 
   Future<void> loadInbox() async {
     try {
-      final list = await _service.inbox();
+      if (_token == null) {
+        debugPrint('⚠️ [MessagesController] no token available for inbox');
+        return;
+      }
+      final list = await _service.inbox(_token!);
       inbox = list;
       _loaded = true;
       notifyListeners();
@@ -42,7 +52,11 @@ class MessagesController extends ChangeNotifier {
 
   Future<void> loadSent() async {
     try {
-      final list = await _service.sent();
+      if (_token == null) {
+        debugPrint('⚠️ [MessagesController] no token available for sent');
+        return;
+      }
+      final list = await _service.sent(_token!);
       sent = list;
       notifyListeners();
     } catch (e) {
@@ -52,7 +66,7 @@ class MessagesController extends ChangeNotifier {
 
   int get unreadCount => inbox.where((m) => !m.read && m.state == 'A').length;
 
-  bool get shouldShowUnreadPopup => !_popupShown && unreadCount > 0;
+  bool get shouldShowUnreadPopup => messagesActive && !_popupShown && unreadCount > 0;
 
   void markPopupShown() {
     _popupShown = true;
@@ -62,7 +76,11 @@ class MessagesController extends ChangeNotifier {
   // Proxy methods that update local cache after performing service calls
   Future<Message?> markRead(String id) async {
     try {
-      final updated = await _service.markRead(id);
+      if (_token == null) {
+        debugPrint('⚠️ [MessagesController] no token available for markRead');
+        return null;
+      }
+      final updated = await _service.markRead(_token!, id);
       final idx = inbox.indexWhere((m) => m.id == id);
       if (idx != -1) inbox[idx] = updated;
       notifyListeners();
@@ -75,7 +93,11 @@ class MessagesController extends ChangeNotifier {
 
   Future<Message?> changeState(String id, String state) async {
     try {
-      final updated = await _service.changeState(id, state);
+      if (_token == null) {
+        debugPrint('⚠️ [MessagesController] no token available for changeState');
+        return null;
+      }
+      final updated = await _service.changeState(_token!, id, state);
       // update in both lists
       final iidx = inbox.indexWhere((m) => m.id == id);
       if (iidx != -1) inbox[iidx] = updated;
@@ -91,7 +113,11 @@ class MessagesController extends ChangeNotifier {
 
   Future<Message?> sendMessage({required String title, required String description, required String destination, String? adjunts}) async {
     try {
-      final m = await _service.send(title: title, description: description, destination: destination, adjunts: adjunts);
+      if (_token == null) {
+        debugPrint('⚠️ [MessagesController] no token available for sendMessage');
+        return null;
+      }
+      final m = await _service.send(token: _token!, title: title, description: description, destination: destination, adjunts: adjunts);
       // append to sent
       sent.insert(0, m);
       notifyListeners();
@@ -104,7 +130,11 @@ class MessagesController extends ChangeNotifier {
 
   Future<Message?> deleteMessage(String id) async {
     try {
-      final updated = await _service.deleteMessage(id);
+      if (_token == null) {
+        debugPrint('⚠️ [MessagesController] no token available for deleteMessage');
+        return null;
+      }
+      final updated = await _service.deleteMessage(_token!, id);
       final iidx = inbox.indexWhere((m) => m.id == id);
       if (iidx != -1) inbox[iidx] = updated;
       final sidx = sent.indexWhere((m) => m.id == id);

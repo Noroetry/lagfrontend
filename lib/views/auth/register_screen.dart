@@ -38,7 +38,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (authController.isAuthenticated) {
       Navigator.of(context).pushReplacementNamed('/home');
     }
-    // If not authenticated, the inline error message (below) will show.
   }
 
   @override

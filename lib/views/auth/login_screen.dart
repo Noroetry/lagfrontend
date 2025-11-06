@@ -32,7 +32,6 @@ class _LoginScreenState extends State<LoginScreen> {
     if (authController.isAuthenticated) {
       Navigator.of(context).pushReplacementNamed('/home');
     }
-    // if not authenticated, the error message from AuthController will show under the button
   }
 
   @override
@@ -44,8 +43,6 @@ class _LoginScreenState extends State<LoginScreen> {
             icon: const Icon(Icons.login, color: Colors.white, size: 18),
             title: 'INICIO',
             actions: [
-              // Keep the actions list simple and consistent with WelcomeScreen: two
-              // PopupActionButton widgets. The first button adapts when loading.
               Consumer<AuthController>(builder: (context, authController, _) {
                 if (authController.isLoading) {
                   return const Padding(
@@ -57,13 +54,11 @@ class _LoginScreenState extends State<LoginScreen> {
               }),
               PopupActionButton(label: 'Volver', onPressed: () => Navigator.of(context).maybePop()),
             ],
-            // child: the form itself (placed last to satisfy analyzer rule)
             child: Form(
               key: _formKey,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Use the reusable input to keep consistent sizing
                   ReusableTextField(
                     controller: _usernameOrEmailController,
                     label: 'Usuario o email',
@@ -86,7 +81,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     },
                   ),
                   const SizedBox(height: 8),
-                  // Show inline error text under the form fields (above actions)
                   Consumer<AuthController>(builder: (context, authController, _) {
                     if (authController.errorMessage == null || authController.errorMessage!.isEmpty) return const SizedBox.shrink();
                     return Text(

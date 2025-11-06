@@ -1,15 +1,12 @@
 class AppConfig {
-  // Default to development for local testing. CI / production can override via
-  // --dart-define=DEV_MODE=false when building for production.
   static const bool isDevelopment = bool.fromEnvironment('DEV_MODE', defaultValue: true);
   
   // URLs del backend
   static const String devApiUrl = 'http://10.0.2.2:3000/api';
   static const String prodApiUrl = 'https://lagbackend.onrender.com/api';
   
-  // Endpoints
+  // ROUTES
   static const String usersEndpoint = '/users';
-  // Messages endpoint
   static const String messagesEndpoint = '/messages';
   
   // Obtener la URL base según el entorno
@@ -32,17 +29,13 @@ class AppConfig {
   static String get messagesApiUrl => '$baseApiUrl$messagesEndpoint';
   
   // Timeouts
-  static const int connectionTimeout = 30000; // 30 segundos
-  static const int receiveTimeout = 30000; // 30 segundos
-  
+  static const int connectionTimeout = 60000; // 60 segundos
+  static const int receiveTimeout = 60000; // 60 segundos
+
   // Configuración de seguridad
   static const bool validateSSLCertificate = true; // Poner en false solo si hay problemas con certificados en desarrollo
   
   // Optional background image for the app (relative asset path). Leave empty to use procedural fog.
-  // Example: 'assets/images/background.jpg'
-  // No background image by default; use a solid dark background color instead.
-  // No background image by default; use solid dark background color instead.
-  // Leave empty to avoid loading any image asset as background.
   static const String backgroundImagePath = '';
 
   // IP addresses permitidas de Render (para validación si es necesario)
@@ -55,9 +48,9 @@ class AppConfig {
   ];
 
   // Reserved usernames that cannot be registered or used to login from client
-  // (the server also reserves 'system' and may enforce others). Keep all in
-  // lowercase for case-insensitive checks.
   static const List<String> reservedUsernames = [
     'system',
+    'admin',
+    'administrator',
   ];
 }

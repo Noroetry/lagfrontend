@@ -16,17 +16,13 @@ void main() {
   runApp(
     MultiProvider(
       providers: [
-        // Provide service implementations so controllers can be constructed
-        // with concrete dependencies (facilitates testing and swapping impls).
-  Provider<IAuthService>(create: (_) => AuthService()),
-  Provider<IMessagesService>(create: (_) => MessagesService()),
-
-        // Controllers receive services from the provider graph.
+        Provider<IAuthService>(create: (_) => AuthService()),
+        Provider<IMessagesService>(create: (_) => MessagesService()),
+        
         ChangeNotifierProvider<AuthController>(
           create: (context) => AuthController(authService: context.read<IAuthService>()),
         ),
 
-        // MessagesController depends on AuthController and MessagesService.
         ChangeNotifierProxyProvider<AuthController, MessagesController>(
           create: (context) => MessagesController(service: context.read<IMessagesService>()),
           update: (context, auth, previous) {
