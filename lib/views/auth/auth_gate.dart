@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:lagfrontend/controllers/auth_controller.dart';
 import 'package:lagfrontend/views/home/home_screen.dart'; // Tu pantalla principal
 import 'package:lagfrontend/views/auth/welcome_screen.dart'; // La nueva pantalla de bienvenida
+import 'package:lagfrontend/views/errors/connection_error_screen.dart';
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -10,6 +11,9 @@ class AuthGate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authController = Provider.of<AuthController>(context);
+    if (authController.connectionErrorMessage != null) {
+      return ConnectionErrorScreen(message: authController.connectionErrorMessage);
+    }
 
     if (authController.isLoading) {
       return const Scaffold(
@@ -19,7 +23,7 @@ class AuthGate extends StatelessWidget {
             children: [
               CircularProgressIndicator(),
               SizedBox(height: 16),
-              Text('Verificando sesión...', style: TextStyle(fontSize: 16)),
+              Text('Cargando...', style: TextStyle(fontSize: 16)),
             ],
           ),
         ),

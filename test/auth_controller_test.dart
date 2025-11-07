@@ -61,6 +61,12 @@ class FakeAuthService implements IAuthService {
 
   @override
   Future<void> logout() async {}
+
+  @override
+  Future<void> ping() async {
+    // Always succeed in tests unless overridden in a different fake.
+    return;
+  }
 }
 
 void main() {

@@ -1,43 +1,51 @@
+/// Centralized application configuration.
+///
+/// - Separates API root (protocol + host + port) from the API prefix (/api).
+/// - Provides convenient endpoints (users, quests, ping, etc.).
+/// - Keeps timeouts and other global constants.
 class AppConfig {
+  // Toggle for development mode; set as a compile-time environment flag if needed.
   static const bool isDevelopment = bool.fromEnvironment('DEV_MODE', defaultValue: true);
-  
-  // URLs del backend
-  static const String devApiUrl = 'http://10.0.2.2:3000/api';
-  static const String prodApiUrl = 'https://lagbackend.onrender.com/api';
-  
-  // ROUTES
-  static const String usersEndpoint = '/users';
-  
-  // Obtener la URL base según el entorno
-  static String get baseApiUrl => isDevelopment ? devApiUrl : prodApiUrl;
 
-  // Allows tests or runtime code to override the base API URL (helps testing
-  // against local servers or mocks). Use `null` to clear the override.
-  static String? _overrideBaseApiUrl;
+  // --- API roots ---
+  // The root host (without the /api prefix). Use emulator host for Android emulator.
+  static const String _devApiRoot = 'http://10.0.2.2:3000';
+  static const String _prodApiRoot = 'https://lagbackend.onrender.com';
 
-  static void setOverrideBaseApiUrl(String? url) => _overrideBaseApiUrl = url;
+  // API prefix applied to resource endpoints
+  static const String apiPrefix = '/api';
 
-  static void clearOverrideBaseApiUrl() => _overrideBaseApiUrl = null;
+  // Chooses root depending on environment
+  static String get baseApiRoot => isDevelopment ? _devApiRoot : _prodApiRoot;
 
-  static String get effectiveBaseApiUrl => _overrideBaseApiUrl != null && _overrideBaseApiUrl!.isNotEmpty
-      ? _overrideBaseApiUrl!
-      : baseApiUrl;
-  
-  // URLs completas para los servicios
-  static String get usersApiUrl => '$baseApiUrl$usersEndpoint';
-  // messagesApiUrl removed (messages feature deleted)
-  
-  // Timeouts
-  static const int connectionTimeout = 60000; // 60 segundos
-  static const int receiveTimeout = 60000; // 60 segundos
+  // Combined base API URL (e.g. https://host/api)
+  static String get baseApiUrl => '$baseApiRoot$apiPrefix';
 
-  // Configuración de seguridad
-  static const bool validateSSLCertificate = true; // Poner en false solo si hay problemas con certificados en desarrollo
-  
+  // Helper to build endpoints relative to the API prefix
+  static String endpoint(String path) => '$baseApiUrl$path';
+
+  // --- Resource endpoints ---
+  static String get usersApiUrl => endpoint('/users');
+  static String get questsApiUrl => endpoint('/quests');
+  // Add other resource endpoints here, e.g. itemsApiUrl, messagesApiUrl, etc.
+
+  // Ping lives under the API root (e.g. /api/ping)
+  static String get pingUrl => endpoint('/ping');
+
+  // --- Timeouts ---
+  // Milliseconds
+  static const int connectionTimeout = 30000; // 30 seconds
+  static const int receiveTimeout = 30000; // 30 seconds
+
+  // --- Security / misc ---
+  static const bool validateSSLCertificate = true;
+
   // Optional background image for the app (relative asset path). Leave empty to use procedural fog.
   static const String backgroundImagePath = '';
 
   // IP addresses permitidas de Render (para validación si es necesario)
+  // Mantengo la lista para despliegues en Render; puede usarse en validaciones
+  // del backend o para reglas de seguridad posteriores.
   static const List<String> renderIpAddresses = [
     '44.229.227.142',
     '54.188.71.94',

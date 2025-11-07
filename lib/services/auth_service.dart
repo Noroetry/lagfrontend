@@ -133,6 +133,19 @@ class AuthService implements IAuthService {
   }
 
   @override
+  Future<void> ping() async {
+    try {
+      final pingUrl = AppConfig.pingUrl;
+      final response = await _client.get(Uri.parse(pingUrl)).timeout(const Duration(seconds: 3));
+      if (response.statusCode == 200) return;
+      throw ApiException('Ping failed: ${response.statusCode}');
+    } catch (e) {
+      // Re-throw as ApiException to let higher layers handle messaging
+      throw ApiException('Ping error: $e');
+    }
+  }
+
+  @override
   Future<void> logout() async {
     final response = await _client.post(
       Uri.parse('$_baseUrl/logout'),

@@ -14,12 +14,14 @@ class AuthController extends ChangeNotifier {
   String? _authToken;
   bool _isLoading = true;
   String? _errorMessage;
+  String? _connectionErrorMessage;
 
   User? get currentUser => _currentUser;
   String? get authToken => _authToken;
   bool get isAuthenticated => _currentUser != null && _authToken != null;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  String? get connectionErrorMessage => _connectionErrorMessage;
 
   AuthController({SecureStorage? storage, IAuthService? authService})
       : storage = storage ?? FlutterSecureStorageAdapter(),
@@ -42,7 +44,7 @@ class AuthController extends ChangeNotifier {
     try {
       String? storedToken;
       try {
-  storedToken = await storage.read('jwt_token');
+        storedToken = await storage.read('jwt_token');
       } catch (e) {
         if (kDebugMode) debugPrint('❌ [Auth Check] Error leyendo token del storage: $e');
         storedToken = null;
@@ -54,7 +56,18 @@ class AuthController extends ChangeNotifier {
         return;
       }
 
-      // Comprobar expiración localmente y/o intentar refresh si está próximo a expirar
+      try {
+        await _authService.ping();
+        if (_connectionErrorMessage != null) {
+          _connectionErrorMessage = null;
+          notifyListeners();
+        }
+      } catch (e) {
+        _connectionErrorMessage = 'Error de conexión: $e';
+        if (kDebugMode) debugPrint('⚠️ [Auth Check] Ping failed: $e');
+        return;
+      }
+
       try {
         final now = DateTime.now();
         DateTime exp;
@@ -249,5 +262,13 @@ class AuthController extends ChangeNotifier {
       if (kDebugMode) debugPrint('❌ [Auth Logout] Error al borrar token: $e');
     }
     notifyListeners();
+  }
+
+  /// Reintentar comprobación de conexión y, si procede, volver a chequear autenticación.
+  Future<void> retryConnection() async {
+    // Clear previous connection error and attempt to re-run the auth check which includes ping.
+    _connectionErrorMessage = null;
+    notifyListeners();
+    await checkAuthenticationStatus();
   }
 }
