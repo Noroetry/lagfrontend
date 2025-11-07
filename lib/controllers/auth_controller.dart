@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:lagfrontend/utils/secure_storage_adapter.dart';
 import 'package:lagfrontend/models/user_model.dart';
 import 'package:lagfrontend/services/i_auth_service.dart';
+import 'package:lagfrontend/services/user_service.dart';
+import 'package:lagfrontend/controllers/user_controller.dart';
 import 'package:lagfrontend/config/app_config.dart';
 import 'package:lagfrontend/utils/exceptions.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
@@ -10,22 +12,23 @@ class AuthController extends ChangeNotifier {
   final SecureStorage storage;
   final IAuthService _authService;
 
-  User? _currentUser;
-  String? _authToken;
+  late final UserController userController;
   bool _isLoading = true;
   String? _errorMessage;
   String? _connectionErrorMessage;
 
-  User? get currentUser => _currentUser;
-  String? get authToken => _authToken;
-  bool get isAuthenticated => _currentUser != null && _authToken != null;
+  User? get currentUser => userController.currentUser;
+  String? get authToken => userController.authToken;
+  bool get isAuthenticated => userController.isAuthenticated;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   String? get connectionErrorMessage => _connectionErrorMessage;
 
-  AuthController({SecureStorage? storage, IAuthService? authService})
+  AuthController({SecureStorage? storage, IAuthService? authService, UserController? userController})
       : storage = storage ?? FlutterSecureStorageAdapter(),
         _authService = authService ?? (throw ArgumentError.notNull('authService')) {
+    // userController may be provided (e.g., for DI/testing); otherwise create a default one
+    this.userController = userController ?? UserController(UserService(_authService));
     checkAuthenticationStatus();
   }
 
@@ -51,8 +54,7 @@ class AuthController extends ChangeNotifier {
       }
 
       if (storedToken == null || storedToken.trim().isEmpty) {
-        _authToken = null;
-        _currentUser = null;
+        userController.clearUser();
         return;
       }
 
@@ -86,26 +88,23 @@ class AuthController extends ChangeNotifier {
           // Try refresh first (server reads refresh cookie or header)
           try {
             final refreshed = await _authService.refresh();
-            _authToken = refreshed.token;
-            _currentUser = refreshed.user;
+            userController.setUser(refreshed.user, refreshed.token);
             try {
-              if (_authToken != null) await storage.write('jwt_token', _authToken!);
+              if (refreshed.token != null) await storage.write('jwt_token', refreshed.token!);
             } catch (_) {}
             if (kDebugMode) debugPrint('🔄 [Auth Check] Token refrescado exitosamente');
             return;
           } on UnauthorizedException catch (e) {
             if (kDebugMode) debugPrint('⚠️ [Auth Check] Refresh rechazado: $e');
             try {
-            await storage.delete('jwt_token');
-          } catch (_) {}
-            _authToken = null;
-            _currentUser = null;
+              await storage.delete('jwt_token');
+            } catch (_) {}
+            userController.clearUser();
             _setErrorMessage('Sesión expirada');
             return;
           } catch (e) {
             if (kDebugMode) debugPrint('❌ [Auth Check] Error refrescando token: $e');
-            _authToken = null;
-            _currentUser = null;
+            userController.clearUser();
             _setErrorMessage('Error refrescando sesión: $e');
             return;
           }
@@ -117,19 +116,17 @@ class AuthController extends ChangeNotifier {
       // Token localmente válido: validar contra backend (/me)
       try {
         final profile = await _authService.getProfile(storedToken);
-        // Si llegamos aquí, el backend validó el token
-        _authToken = storedToken;
-        _currentUser = profile;
+        // Si llegamos aquí, el backend validó el token -> delegar al UserController
+        userController.setUser(profile, storedToken);
         if (kDebugMode) debugPrint('✅ [Auth Check] Perfil obtenido: ${profile.username}');
       } on UnauthorizedException catch (e) {
         if (kDebugMode) debugPrint('⚠️ [Auth Check] Token rechazado por backend: $e — intentando refresh');
         // Try one refresh attempt
         try {
           final refreshed = await _authService.refresh();
-          _authToken = refreshed.token;
-          _currentUser = refreshed.user;
-            try {
-            if (_authToken != null) await storage.write('jwt_token', _authToken!);
+          userController.setUser(refreshed.user, refreshed.token);
+          try {
+            if (refreshed.token != null) await storage.write('jwt_token', refreshed.token!);
           } catch (_) {}
           if (kDebugMode) debugPrint('🔄 [Auth Check] Token refrescado tras 401');
         } on UnauthorizedException catch (e2) {
@@ -137,19 +134,16 @@ class AuthController extends ChangeNotifier {
           try {
             await storage.delete('jwt_token');
           } catch (_) {}
-          _authToken = null;
-          _currentUser = null;
+          userController.clearUser();
           _setErrorMessage('Token rechazado por backend');
         } catch (e2) {
           if (kDebugMode) debugPrint('❌ [Auth Check] Error refrescando tras 401: $e2');
-          _authToken = null;
-          _currentUser = null;
+          userController.clearUser();
           _setErrorMessage('Error validando token: $e2');
         }
       } catch (e) {
         if (kDebugMode) debugPrint('❌ [Auth Check] Error validando token: $e');
-        _authToken = null;
-        _currentUser = null;
+        userController.clearUser();
         _setErrorMessage('Error validando token: $e');
       }
     } finally {
@@ -174,24 +168,22 @@ class AuthController extends ChangeNotifier {
 
     try {
       final response = await _authService.login(usernameOrEmail, password);
-      _currentUser = response.user;
-      _authToken = response.token;
+      userController.setUser(response.user, response.token);
 
       // If backend didn't return an access token but set a refresh cookie, try to refresh once
-      if (_authToken == null) {
+      if (response.token == null) {
         try {
           if (kDebugMode) debugPrint('🔁 [Auth Login] No access token in response, attempting refresh via cookie');
           final refreshed = await _authService.refresh();
-          _authToken = refreshed.token;
-          _currentUser = refreshed.user;
+          userController.setUser(refreshed.user, refreshed.token);
         } catch (e) {
           if (kDebugMode) debugPrint('⚠️ [Auth Login] refresh attempt after login failed: $e');
         }
       }
 
-      if (_authToken != null) {
+      if (userController.authToken != null) {
         try {
-          await storage.write('jwt_token', _authToken!);
+          await storage.write('jwt_token', userController.authToken!);
           if (kDebugMode) debugPrint('🔐 [Auth Save] Token guardado correctamente');
         } catch (e) {
           _setErrorMessage('Error al guardar credenciales localmente');
@@ -200,8 +192,7 @@ class AuthController extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _setErrorMessage(e.toString());
-      _currentUser = null;
-      _authToken = null;
+      userController.clearUser();
     } finally {
       _setLoading(false);
     }
@@ -223,12 +214,12 @@ class AuthController extends ChangeNotifier {
     try {
       final response = await _authService.register(username, email, password);
 
-      _currentUser = response.user;
-      _authToken = response.token;
+      // Ensure we delegate user state
+      userController.setUser(response.user, response.token);
 
-      if (_authToken != null) {
+      if (userController.authToken != null) {
         try {
-          await storage.write('jwt_token', _authToken!);
+          await storage.write('jwt_token', userController.authToken!);
           if (kDebugMode) debugPrint('🔐 [Auth Save] Token guardado correctamente tras registro');
         } catch (e) {
           _setErrorMessage('Error al guardar credenciales localmente');
@@ -237,8 +228,7 @@ class AuthController extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _setErrorMessage(e.toString());
-      _currentUser = null;
-      _authToken = null;
+      userController.clearUser();
     } finally {
       _setLoading(false);
     }
@@ -253,8 +243,7 @@ class AuthController extends ChangeNotifier {
       // continue with client-side cleanup even if server call fails
     }
 
-    _currentUser = null;
-    _authToken = null;
+    userController.clearUser();
     try {
       await storage.delete('jwt_token');
       if (kDebugMode) debugPrint('🗑️ [Auth Logout] Token borrado del storage');
