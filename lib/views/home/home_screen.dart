@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lagfrontend/controllers/auth_controller.dart';
-import 'package:lagfrontend/controllers/messages_controller.dart';
+// Messages feature removed: no imports here
 import 'package:lagfrontend/views/auth/auth_gate.dart'; // Para regresar
-import 'package:lagfrontend/widgets/popup_form.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -13,66 +12,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  bool _listening = false;
-
-  void _maybeShowUnreadPopup(BuildContext context) {
-    MessagesController? messages;
-    try {
-      messages = Provider.of<MessagesController>(context, listen: false);
-    } catch (_) {
-      messages = null;
-    }
-    if (messages == null) return;
-    if (messages.shouldShowUnreadPopup) {
-      // Mark as shown so it won't appear again
-      messages.markPopupShown();
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        showDialog(
-          context: context,
-          barrierDismissible: true,
-          barrierColor: Colors.black45,
-          builder: (ctx) => PopupForm(
-            icon: const Icon(Icons.mail_outline, color: Colors.white),
-            title: 'BUZÓN',
-            description: 'Tienes mensajes nuevos sin leer.¿Quieres abrir el buzón?',
-            actions: [
-              PopupActionButton(
-                label: 'Si',
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Implementation in progress...')));
-                },
-              ),
-              PopupActionButton(
-                label: 'No',
-                onPressed: () => Navigator.of(ctx).pop(),
-              ),
-            ],
-          ),
-        );
-      });
-    }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (!_listening) {
-      // Listen to messages controller to reactively show popup once when needed
-      try {
-        final messages = Provider.of<MessagesController>(context, listen: false);
-        messages.addListener(() {
-          if (mounted) _maybeShowUnreadPopup(context);
-        });
-      } catch (_) {
-        // Tests may not provide MessagesController; ignore silently.
-      }
-      _listening = true;
-      // Also try immediately in case messages were already loaded
-      WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowUnreadPopup(context));
-    }
-  }
+  // Messages feature removed — keep HomeScreen focused on user info and navigation
 
   @override
   Widget build(BuildContext context) {

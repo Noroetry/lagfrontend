@@ -1,5 +1,4 @@
-import 'dart:convert';
-import 'package:lagfrontend/models/message_model.dart';
+// no extra imports required
 
 class User {
   final String id;
@@ -12,16 +11,13 @@ class User {
   // Map libre para cualquier campo adicional que el backend devuelva
   // (por ejemplo: displayName, avatarUrl, bio, settings, etc.).
   final Map<String, dynamic> additionalData;
-  // Mensajes asociados al usuario. Parseados a objetos Message si vienen del backend.
-  final List<Message> messages;
 
   User({
     required this.id,
     required this.username,
     required this.email,
     required this.adminLevel,
-    this.additionalData = const {},
-    this.messages = const [],
+  this.additionalData = const {},
   });
 
   // Helper booleano compatible con código antiguo: true si adminLevel > 0
@@ -71,27 +67,7 @@ class User {
       adminLevel = 0;
     }
 
-    // Extract messages if present and remove from additional map
-    final rawMessages = copy.remove('messages');
-    List<Message> messages = const [];
-    if (rawMessages is List) {
-      try {
-        messages = rawMessages.where((e) => e != null).map<Message>((e) {
-          if (e is Map<String, dynamic>) return Message.fromJson(e);
-          if (e is String) {
-            try {
-              final parsed = Map<String, dynamic>.from(jsonDecode(e));
-              return Message.fromJson(parsed);
-            } catch (_) {
-              return Message.fromJson({});
-            }
-          }
-          return Message.fromJson({});
-        }).toList();
-      } catch (_) {
-        messages = const [];
-      }
-    }
+    // No message parsing here — the messages feature was removed.
 
     return User(
       id: id,
@@ -99,7 +75,6 @@ class User {
       email: email,
       adminLevel: adminLevel,
       additionalData: copy,
-      messages: messages,
     );
   }
 
@@ -111,7 +86,6 @@ class User {
       'admin': adminLevel,
     };
     base.addAll(additionalData);
-    if (messages.isNotEmpty) base['messages'] = messages.map((m) => m.toJson()).toList();
     return base;
   }
 }

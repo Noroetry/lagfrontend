@@ -7,7 +7,6 @@ class AppConfig {
   
   // ROUTES
   static const String usersEndpoint = '/users';
-  static const String messagesEndpoint = '/messages';
   
   // Obtener la URL base según el entorno
   static String get baseApiUrl => isDevelopment ? devApiUrl : prodApiUrl;
@@ -26,7 +25,7 @@ class AppConfig {
   
   // URLs completas para los servicios
   static String get usersApiUrl => '$baseApiUrl$usersEndpoint';
-  static String get messagesApiUrl => '$baseApiUrl$messagesEndpoint';
+  // messagesApiUrl removed (messages feature deleted)
   
   // Timeouts
   static const int connectionTimeout = 60000; // 60 segundos
