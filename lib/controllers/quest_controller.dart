@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:lagfrontend/models/quest_model.dart';
+import 'package:lagfrontend/models/user_model.dart';
 import 'package:lagfrontend/controllers/user_controller.dart';
 import 'package:lagfrontend/services/quest_service.dart';
 
@@ -40,16 +41,30 @@ class QuestController extends ChangeNotifier {
     if (user == null) return;
     _isLoading = true;
     _error = null;
+    if (kDebugMode) debugPrint('🧭 [QuestController.loadQuests] starting for userId=${user.id} tokenPresent=${_userController.authToken != null}');
     notifyListeners();
 
     try {
-      _quests = await _questService.fetchQuestsForUser(user);
+      // Pass auth token from UserController if available so server can authorize the request
+  _quests = await _questServiceCall(user);
+      if (kDebugMode) debugPrint('✅ [QuestController.loadQuests] loaded ${_quests.length} quests');
     } catch (e) {
       _error = e.toString();
+      if (kDebugMode) debugPrint('❌ [QuestController.loadQuests] error: $_error');
       _quests = [];
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  // extracted call to aid logging and keep the main flow readable
+  Future<List<Quest>> _questServiceCall(User user) async {
+    try {
+      return await _questService.fetchQuestsForUser(user, token: _userController.authToken);
+    } catch (e) {
+      if (kDebugMode) debugPrint('❌ [QuestController._quest_service_call] caught error: $e');
+      rethrow;
     }
   }
 

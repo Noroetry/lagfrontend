@@ -19,16 +19,25 @@ class UserController extends ChangeNotifier {
   void setUser(User user, String? token) {
     _currentUser = user;
     _authToken = token;
+    if (kDebugMode) {
+      debugPrint('🔐 [UserController.setUser] userId=${user.id} username=${user.username} tokenPresent=${token != null}');
+    }
     notifyListeners();
   }
 
   /// Clear local user state.
   void clearUser() {
+    if (kDebugMode) debugPrint('🗑️ [UserController.clearUser] clearing local user state');
     _currentUser = null;
     _authToken = null;
     notifyListeners();
   }
 
   /// Convenience: fetch fresh profile from server using provided token.
-  Future<User> refreshProfile(String token) => _userService.getProfile(token);
+  Future<User> refreshProfile(String token) async {
+  if (kDebugMode) debugPrint('🔄 [UserController.refreshProfile] requesting profile with tokenPresent=${token.isNotEmpty}');
+    final profile = await _userService.getProfile(token);
+    if (kDebugMode) debugPrint('🔄 [UserController.refreshProfile] received profile: id=${profile.id} username=${profile.username}');
+    return profile;
+  }
 }
