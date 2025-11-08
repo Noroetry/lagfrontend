@@ -109,17 +109,66 @@ class QuestService {
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
         if (kDebugMode) debugPrint('🔍 [QuestService.activateQuestForUser] decoded JSON: $decoded');
+
+        // The backend now returns a consistent `quests` array. Prefer that shape.
         if (decoded is Map<String, dynamic> && decoded['quests'] is List) {
           return List<dynamic>.from(decoded['quests']);
         }
-        // Fallback: if response is a single quest object or list
+        // If backend returns the array directly, accept it too.
         if (decoded is List) return decoded;
-        if (decoded is Map<String, dynamic>) return <dynamic>[decoded];
+
+        // Unexpected shape: return empty list to keep callers robust.
         return <dynamic>[];
       } else if (response.statusCode == 401) {
         throw UnauthorizedException('Acceso denegado al activar quest');
       } else {
         throw ApiException('Fallo al activar quest: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (e is ApiException || e is UnauthorizedException) rethrow;
+      throw ApiException('Error comunicándose con el servidor de quests: $e');
+    }
+  }
+
+  /// Submit initial parameter values for a quest. Endpoint: POST /submit-params
+  /// Body: { userId, idQuest, values: [{ idDetail|id, value }, ...] }
+  Future<List<dynamic>> submitParamsForUser(User user, dynamic idQuest, List<dynamic> values, {String? token}) async {
+    final uri = Uri.parse('$_baseUrl/submit-params');
+    final headers = <String, String>{'Content-Type': 'application/json'};
+    if (token != null && token.trim().isNotEmpty) headers['Authorization'] = 'Bearer $token';
+
+    final body = <String, dynamic>{'userId': user.id, 'idQuest': idQuest, 'values': values};
+
+    try {
+      if (kDebugMode) {
+        debugPrint('➡️ [QuestService.submitParamsForUser] POST $uri');
+        debugPrint('➡️ [QuestService.submitParamsForUser] headers: $headers');
+        debugPrint('➡️ [QuestService.submitParamsForUser] body: $body');
+      }
+
+      final response = await _client.post(uri, headers: headers, body: jsonEncode(body));
+      if (kDebugMode) {
+        debugPrint('🔍 [QuestService.submitParamsForUser] HTTP ${response.statusCode}');
+        debugPrint('🔍 [QuestService.submitParamsForUser] raw body: ${response.body}');
+      }
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        if (kDebugMode) debugPrint('🔍 [QuestService.submitParamsForUser] decoded JSON: $decoded');
+
+        // Expect the backend to return a `quests` array consistently.
+        if (decoded is Map<String, dynamic> && decoded['quests'] is List) {
+          return List<dynamic>.from(decoded['quests']);
+        }
+        // Accept direct array responses as well.
+        if (decoded is List) return decoded;
+
+        // Unexpected shape: return empty list.
+        return <dynamic>[];
+      } else if (response.statusCode == 401) {
+        throw UnauthorizedException('Acceso denegado al enviar parámetros de quest');
+      } else {
+        throw ApiException('Fallo al enviar parámetros de quest: ${response.statusCode}');
       }
     } catch (e) {
       if (e is ApiException || e is UnauthorizedException) rethrow;

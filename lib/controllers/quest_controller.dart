@@ -81,9 +81,10 @@ class QuestController extends ChangeNotifier {
       if (activated.isNotEmpty) {
         for (final a in activated) {
           try {
-            final aId = a is Map && a['id'] != null ? a['id'] : null;
+            // new backend uses idQuestUser as per-user quest id
+            final aId = a is Map && a['idQuestUser'] != null ? a['idQuestUser'] : (a is Map && a['id'] != null ? a['id'] : null);
             if (aId != null) {
-              final idx = _quests.indexWhere((q) => q is Map && q['id'] == aId);
+              final idx = _quests.indexWhere((q) => q is Map && ((q['idQuestUser'] ?? q['id']) == aId));
               if (idx >= 0) {
                 _quests[idx] = a;
               } else {
@@ -97,6 +98,162 @@ class QuestController extends ChangeNotifier {
       return activated;
     } catch (e) {
       if (kDebugMode) debugPrint('❌ [QuestController.activateQuest] error: $e');
+      rethrow;
+    }
+  }
+
+  /// Validate parameter values for a quest that requires parameters.
+  ///
+  /// - [quest]: raw quest object (Map) as received from backend.
+  /// - [values]: list of string values provided by the user, in the same order
+  ///   as the `details` that have `needParam` true.
+  ///
+  /// Returns an empty list when validation passes, otherwise returns a list
+  /// of human-friendly error messages for each failing parameter.
+  List<String> validateParamsForQuest(dynamic quest, List<String> values) {
+    final errors = <String>[];
+    try {
+      final details = (quest is Map && quest['details'] is List) ? List.from(quest['details']) : <dynamic>[];
+
+      bool needsParam(Object? v) {
+        if (v == null) return false;
+        if (v is bool) return v;
+        if (v is num) return v != 0;
+        if (v is String) {
+          final s = v.trim().toLowerCase();
+          return s == 'true' || s == '1' || s == 'yes' || s == 'y';
+        }
+        return false;
+      }
+
+      final paramDetails = <dynamic>[];
+      for (final d in details) {
+        if (d is Map && needsParam(d['needParam'])) paramDetails.add(d);
+      }
+
+      if (paramDetails.length != values.length) {
+        errors.add('Número de parámetros inválido');
+        return errors;
+      }
+
+      for (var i = 0; i < paramDetails.length; i++) {
+        final d = paramDetails[i] as Map;
+        // Ensure we have the per-user detail id (idQuestUserDetail) which the backend
+        // requires to store values against the correct QuestsUser row.
+        final idQuestUserDetail = d['idQuestUserDetail'];
+        if (idQuestUserDetail == null) {
+          errors.add('Parámetro ${i + 1}: idQuestUserDetail ausente en la configuración de la quest');
+          continue;
+        }
+        final rawType = (d['paramtype'] ?? d['paramType'])?.toString().toLowerCase();
+        final v = values[i].trim();
+        if (v.isEmpty) {
+          errors.add('Parámetro ${i + 1}: requerido');
+          continue;
+        }
+        if (rawType == 'number') {
+          if (num.tryParse(v) == null) errors.add('Parámetro ${i + 1}: debe ser un número válido');
+        }
+        // if rawType == 'text' or unknown, no further validation beyond required
+      }
+    } catch (e) {
+      errors.add('Error validando parámetros: $e');
+    }
+    return errors;
+  }
+
+  /// Submit parameter values for a quest after local validation.
+  /// Returns the list of quests returned by the backend (usually updated quest(s)).
+  Future<List<dynamic>> submitParamsForQuest(dynamic quest, List<String> inputValues) async {
+    final user = _userController.currentUser;
+    if (user == null) throw ArgumentError('No current user');
+
+    // Validate first
+    final validationErrors = validateParamsForQuest(quest, inputValues);
+    if (validationErrors.isNotEmpty) {
+      // Surface validation errors to caller
+      throw ArgumentError(validationErrors.join('; '));
+    }
+
+    // Build values payload expected by backend
+    final details = (quest is Map && quest['details'] is List) ? List.from(quest['details']) : <dynamic>[];
+    bool needsParam(Object? v) {
+      if (v == null) return false;
+      if (v is bool) return v;
+      if (v is num) return v != 0;
+      if (v is String) {
+        final s = v.trim().toLowerCase();
+        return s == 'true' || s == '1' || s == 'yes' || s == 'y';
+      }
+      return false;
+    }
+
+    final paramDetails = <dynamic>[];
+    for (final d in details) {
+      if (d is Map && needsParam(d['needParam'])) paramDetails.add(d);
+    }
+
+    if (paramDetails.length != inputValues.length) {
+      throw ArgumentError('Número de parámetros inválido');
+    }
+
+  final idQuest = quest is Map && quest['idQuestUser'] != null
+    ? quest['idQuestUser']
+    : (quest is Map && quest['id'] != null ? quest['id'] : null);
+  if (idQuest == null) throw ArgumentError('Quest id missing');
+
+    final valuesForBackend = <Map<String, dynamic>>[];
+    for (var i = 0; i < paramDetails.length; i++) {
+      final d = paramDetails[i] as Map<String, dynamic>;
+      final rawType = (d['paramtype'] ?? d['paramType'])?.toString().toLowerCase();
+      final rawInput = inputValues[i].trim();
+      dynamic finalValue = rawInput;
+      if (rawType == 'number') {
+        finalValue = num.tryParse(rawInput);
+      }
+      final idQuestUserDetail = d['idQuestUserDetail'];
+      if (idQuestUserDetail == null) {
+        // idQuestUserDetail is required for backend storage; fail fast with a clear message
+        throw ArgumentError('idQuestUserDetail missing for parameter ${i + 1}');
+      }
+
+      // Per backend requirements, place idQuestUserDetail *inside* the `value` field
+      // so the server receives: { value: { idQuestUserDetail: ..., value: ... }, idUser, idQuest }
+      final entry = <String, dynamic>{
+        'value': <String, dynamic>{'idQuestUserDetail': idQuestUserDetail, 'value': finalValue},
+        // Keep idUser and idQuest at the entry level so server can locate the QuestsUser row
+        'idUser': user.id,
+        'idQuest': idQuest,
+      };
+      valuesForBackend.add(entry);
+    }
+
+    try {
+      final submitted = await _questService.submitParamsForUser(user, idQuest, valuesForBackend, token: _userController.authToken);
+
+      // Merge/replace returned quests into local list (similar to activate)
+      if (submitted.isNotEmpty) {
+        for (final a in submitted) {
+          try {
+            final aId = a is Map && a['idQuestUser'] != null
+                ? a['idQuestUser']
+                : (a is Map && a['id'] != null ? a['id'] : null);
+            if (aId != null) {
+              final idx = _quests.indexWhere((q) => q is Map && ((q['idQuestUser'] ?? q['id']) == aId));
+              if (idx >= 0) {
+                _quests[idx] = a;
+              } else {
+                _quests.add(a);
+              }
+            }
+          } catch (_) {}
+        }
+        notifyListeners();
+      }
+
+      return submitted;
+    } catch (e) {
+      if (kDebugMode) debugPrint('❌ [QuestController.submitParamsForQuest] error: $e');
       rethrow;
     }
   }
