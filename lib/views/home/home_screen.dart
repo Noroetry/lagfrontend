@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lagfrontend/controllers/auth_controller.dart';
+import 'package:lagfrontend/widgets/quest_popups_handler.dart';
 // Messages feature removed: no imports here
 import 'package:lagfrontend/views/auth/auth_gate.dart'; // Para regresar
 
@@ -132,6 +133,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
+              // Handler that listens for quests and shows popups when needed.
+              const QuestPopupsHandler(),
             ],
           ),
         ),

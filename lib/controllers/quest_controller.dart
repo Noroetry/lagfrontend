@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import 'package:lagfrontend/models/quest_model.dart';
 import 'package:lagfrontend/models/user_model.dart';
 import 'package:lagfrontend/controllers/user_controller.dart';
 import 'package:lagfrontend/services/quest_service.dart';
@@ -9,7 +8,9 @@ class QuestController extends ChangeNotifier {
   final UserController _userController;
   final QuestService _questService;
 
-  List<Quest> _quests = [];
+  // Store raw quest JSON objects returned by the backend. Keep dynamic so we
+  // can adapt quickly while the backend response shape is finalized.
+  List<dynamic> _quests = [];
   bool _isLoading = false;
   String? _error;
 
@@ -22,7 +23,7 @@ class QuestController extends ChangeNotifier {
     }
   }
 
-  List<Quest> get quests => _quests;
+  List<dynamic> get quests => _quests;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
@@ -45,8 +46,9 @@ class QuestController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Pass auth token from UserController if available so server can authorize the request
+  // Pass auth token from UserController if available so server can authorize the request
   _quests = await _questServiceCall(user);
+  if (kDebugMode) debugPrint('🔎 [QuestController] raw quests: $_quests');
       if (kDebugMode) debugPrint('✅ [QuestController.loadQuests] loaded ${_quests.length} quests');
     } catch (e) {
       _error = e.toString();
@@ -59,11 +61,42 @@ class QuestController extends ChangeNotifier {
   }
 
   // extracted call to aid logging and keep the main flow readable
-  Future<List<Quest>> _questServiceCall(User user) async {
+  Future<List<dynamic>> _questServiceCall(User user) async {
     try {
       return await _questService.fetchQuestsForUser(user, token: _userController.authToken);
     } catch (e) {
       if (kDebugMode) debugPrint('❌ [QuestController._quest_service_call] caught error: $e');
+      rethrow;
+    }
+  }
+
+  /// Activate a quest (user accepted). Returns the activated quest(s) from server
+  /// and updates the local _quests list replacing the matching questUser id.
+  Future<List<dynamic>> activateQuest(dynamic questUserId) async {
+    final user = _userController.currentUser;
+    if (user == null) throw ArgumentError('No current user');
+    try {
+      final activated = await _questService.activateQuestForUser(user, questUserId, token: _userController.authToken);
+      // Replace or insert activated quests into local list
+      if (activated.isNotEmpty) {
+        for (final a in activated) {
+          try {
+            final aId = a is Map && a['id'] != null ? a['id'] : null;
+            if (aId != null) {
+              final idx = _quests.indexWhere((q) => q is Map && q['id'] == aId);
+              if (idx >= 0) {
+                _quests[idx] = a;
+              } else {
+                _quests.add(a);
+              }
+            }
+          } catch (_) {}
+        }
+        notifyListeners();
+      }
+      return activated;
+    } catch (e) {
+      if (kDebugMode) debugPrint('❌ [QuestController.activateQuest] error: $e');
       rethrow;
     }
   }
