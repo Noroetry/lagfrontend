@@ -127,7 +127,11 @@ class _PopupFormState extends State<PopupForm> with SingleTickerProviderStateMix
                           // directly. Otherwise, render a horizontal row of the
                           // provided action widgets with spacing.
                           if (widget.actions!.length == 1)
-                            widget.actions!.first
+                            // Center a single action so it doesn't stretch to the
+                            // full popup width. This keeps the button's borders
+                            // tight around its label and allows reusing the
+                            // same button widgets used elsewhere (login/register).
+                            Center(child: widget.actions!.first)
                             else
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -198,25 +202,29 @@ class _PopupActionButtonState extends State<PopupActionButton> {
       scale: _pressed ? 0.985 : 1.0,
       duration: AppTheme.popupButtonAnimationDuration,
       curve: Curves.easeInOut,
-      child: AnimatedContainer(
-        duration: AppTheme.popupButtonAnimationDuration,
-        curve: Curves.easeInOut,
-        padding: padding,
-        decoration: BoxDecoration(
-          color: color,
-          // Slightly tighter corner radius for compact look
-          borderRadius: BorderRadius.circular(6.0),
-          border: Border.all(color: borderColor, width: 1.0),
-        ),
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: _handleTap,
-          onTapDown: (_) => setState(() => _pressed = true),
-          onTapCancel: () => setState(() => _pressed = false),
-          child: DefaultTextStyle(
-            // Use a slightly smaller / tighter label to read as minimal
-            style: Theme.of(context).textTheme.labelLarge!.copyWith(color: textColor, fontSize: 14, fontWeight: FontWeight.w600),
-            child: Center(child: Text(widget.label)),
+      // Ensure the button width is its intrinsic content width so it doesn't
+      // expand to fill available horizontal space in popup layouts.
+      child: IntrinsicWidth(
+        child: AnimatedContainer(
+          duration: AppTheme.popupButtonAnimationDuration,
+          curve: Curves.easeInOut,
+          padding: padding,
+          decoration: BoxDecoration(
+            color: color,
+            // Slightly tighter corner radius for compact look
+            borderRadius: BorderRadius.circular(6.0),
+            border: Border.all(color: borderColor, width: 1.0),
+          ),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _handleTap,
+            onTapDown: (_) => setState(() => _pressed = true),
+            onTapCancel: () => setState(() => _pressed = false),
+            child: DefaultTextStyle(
+              // Use a slightly smaller / tighter label to read as minimal
+              style: Theme.of(context).textTheme.labelLarge!.copyWith(color: textColor, fontSize: 14, fontWeight: FontWeight.w600),
+              child: Center(child: Text(widget.label)),
+            ),
           ),
         ),
       ),

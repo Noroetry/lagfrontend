@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:lagfrontend/controllers/quest_controller.dart';
 import 'package:lagfrontend/widgets/popup_form.dart';
+import 'package:lagfrontend/theme/app_theme.dart';
 
 /// Widget that listens to QuestController and shows sequential popups for
 /// quests with state 'N' (notification) or 'P' (parameter form), reusing
@@ -95,24 +96,109 @@ class _QuestPopupsHandlerState extends State<QuestPopupsHandler> {
       }
     }
 
-  Future<bool> _showNotificationPopup(dynamic id, String questTitle) async {
+  Future<bool> _showNotificationPopup(dynamic quest) async {
     if (!mounted) return false;
 
-  // ignore: use_build_context_synchronously
-  final parentNav = Navigator.of(context);
+    // Determine title/header safely from the quest map
+    Map<String, dynamic> header = {};
+    String title = '—';
+    try {
+      if (quest is Map) {
+        final h = quest['header'];
+        if (h is Map<String, dynamic>) header = h;
+        title = header['title']?.toString() ?? title;
+      }
+    } catch (_) {}
+
+    // Determine period label: D->diaria, W->semanal, M->mensual, otherwise blank
+    String periodLabel = '';
+    try {
+      final dynamic p = (quest is Map && quest['period'] != null)
+          ? quest['period']
+          : (header['period'] ?? header['periodo']);
+      if (p != null) {
+        final ps = p.toString().toUpperCase();
+        if (ps == 'D') {
+          periodLabel = 'diaria';
+        } else if (ps == 'W') {
+          periodLabel = 'semanal';
+        } else if (ps == 'M') {
+          periodLabel = 'mensual';
+        }
+      }
+    } catch (_) {}
+
+    // Welcome message (newly added field in header)
+    String welcome = '';
+    try {
+      final wm = header['welcomeMessage'] ?? header['welcome_message'] ?? header['welcome'];
+      if (wm != null) {
+        welcome = wm.toString();
+      }
+    } catch (_) {}
+
+    // Build description lines
+    final missionLine = periodLabel.isNotEmpty ? 'Nueva misión $periodLabel:' : 'Nueva misión:';
+
+    // Build a custom child so we can style the mission line + title and the
+    // quoted welcomeMessage separately as requested.
+    final child = Material(
+      color: Colors.transparent,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(height: 20),
+          // Mission line and title (title inside [ ] in bold + full white)
+          RichText(
+            textAlign: TextAlign.center,
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: '$missionLine ',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 13),
+                ),
+                TextSpan(
+                  text: '[ $title ]',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                ),
+              ],
+            ),
+          ),
+          if (welcome.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            Text(
+              '“$welcome”',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontStyle: FontStyle.italic,
+                    color: AppColors.textSecondary,
+                  ),
+            ),
+          ],
+          SizedBox(height: 20),
+        ],
+      ),
+    );
+
+    // ignore: use_build_context_synchronously
+    final parentNav = Navigator.of(context);
     final accepted = await showDialog<bool>(
       context: parentNav.context,
       barrierDismissible: false,
       builder: (ctx) => PopupForm(
         icon: const Icon(Icons.priority_high),
-        title: 'QUEST',
-        description: '$questTitle\nEstado: N\nID: $id',
+        title: 'NUEVA MISIÓN',
         actions: [
           PopupActionButton(
             label: 'Aceptar',
             onPressed: () => Navigator.of(ctx).pop(true),
           ),
         ],
+        child: child,
       ),
     );
     return accepted == true;
@@ -133,16 +219,15 @@ class _QuestPopupsHandlerState extends State<QuestPopupsHandler> {
     final title = header is Map && header['title'] != null ? header['title'].toString() : 'Quest';
 
     final qc = Provider.of<QuestController>(context, listen: false);
-
     if (state == 'N') {
-      final accepted = await _showNotificationPopup(id, title);
+      final accepted = await _showNotificationPopup(quest);
       if (!accepted) {
         _shownQuestIds.add(id);
         return;
       }
 
-  // ignore: use_build_context_synchronously
-  final parentNav = Navigator.of(context);
+      // ignore: use_build_context_synchronously
+      final parentNav = Navigator.of(context);
       try {
         final activated = await qc.activateQuest(id);
         if (!mounted) return;
@@ -232,12 +317,11 @@ class _QuestPopupsHandlerState extends State<QuestPopupsHandler> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => PopupForm(
-        icon: const Icon(Icons.priority_high),
-        title: 'QUEST',
-        description: '$questTitle\nEstado: P\nID: $id',
+        icon: const Icon(Icons.edit),
+        title: 'REQUISITOS MISIÓN',
         actions: [
           PopupActionButton(
-            label: 'Aceptar',
+            label: 'Enviar',
             onPressed: () async {
               // Validate form before attempting submit
               final valid = formKey.currentState?.validate() ?? true;
@@ -293,44 +377,132 @@ class _QuestPopupsHandlerState extends State<QuestPopupsHandler> {
         child: Material(
           color: Colors.transparent,
           child: SingleChildScrollView(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const SizedBox(height: 8),
-                  if (controllers.isEmpty) const Text('No se requieren parámetros iniciales.'),
-                  ...List<Widget>.generate(controllers.length, (i) {
-                    final detail = paramDetails[i];
-                    final label = detail['description']?.toString() ?? 'Valor inicial';
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 8),
+                // Build mission header similar to the 'N' popup style
+                Builder(builder: (ctx2) {
+                  // Extract header/title/period/welcome similarly
+                  Map<String, dynamic> header = {};
+                  String title = questTitle;
+                  try {
+                    if (quest is Map) {
+                      final h = quest['header'];
+                      if (h is Map<String, dynamic>) header = h;
+                      title = header['title']?.toString() ?? title;
+                    }
+                  } catch (_) {}
 
-                    // Accept param type in either 'paramtype' or 'paramType' to be tolerant
-                    final rawParamType = (detail['paramtype'] ?? detail['paramType'])?.toString().toLowerCase();
-                    final isNumber = rawParamType == 'number';
+                  String periodLabel = '';
+                  try {
+                    final dynamic p = (quest is Map && quest['period'] != null)
+                        ? quest['period']
+                        : (header['period'] ?? header['periodo']);
+                    if (p != null) {
+                      final ps = p.toString().toUpperCase();
+                      if (ps == 'D') {
+                        periodLabel = 'diaria';
+                      } else if (ps == 'W') {
+                        periodLabel = 'semanal';
+                      } else if (ps == 'M') {
+                        periodLabel = 'mensual';
+                      }
+                    }
+                  } catch (_) {}
 
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6.0),
-                      child: TextFormField(
-                        controller: controllers[i],
-                        decoration: InputDecoration(labelText: label),
-                        keyboardType: isNumber ? const TextInputType.numberWithOptions(decimal: true, signed: true) : TextInputType.text,
-                        inputFormatters: isNumber ? <TextInputFormatter>[FilteringTextInputFormatter.allow(RegExp(r'[-0-9\.]'))] : null,
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty) return 'Requerido';
-                          final value = v.trim();
-                          if (isNumber) {
-                            // Accept both integer and decimal values; reject if not parseable
-                            final parsed = num.tryParse(value);
-                            if (parsed == null) return 'Debe ser un número válido';
-                          }
-                          // For 'text' or unknown types, only required check is applied
-                          return null;
-                        },
+                  String welcome = '';
+                  try {
+                    final wm = header['welcomeMessage'] ?? header['welcome_message'] ?? header['welcome'];
+                    if (wm != null) welcome = wm.toString();
+                  } catch (_) {}
+
+                  final missionLine = periodLabel.isNotEmpty ? 'Requisitos de nueva misión $periodLabel:' : 'Requisitos de nueva misión:';
+
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      RichText(
+                        textAlign: TextAlign.center,
+                        text: TextSpan(
+                          children: [
+                            TextSpan(
+                              text: '$missionLine ',
+                              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 16),
+                            ),
+                            TextSpan(
+                              text: '[$title]',
+                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    color: AppColors.textPrimary,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                            ),
+                          ],
+                        ),
                       ),
-                    );
-                  }),
-                ],
-              ),
+                      if (welcome.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          '“$welcome”',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                fontStyle: FontStyle.italic,
+                                color: AppColors.textSecondary,
+                              ),
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      // Now the form
+                      Form(
+                        key: formKey,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (controllers.isEmpty)
+                              const Text('No se requieren parámetros iniciales.'),
+                            ...List<Widget>.generate(controllers.length, (i) {
+                              final detail = paramDetails[i];
+                              // Prefer 'descriptionParam' then 'description'
+                              final labelAbove = (detail['descriptionParam'] ?? detail['description'])?.toString() ?? 'Valor inicial';
+
+                              // Accept param type in either 'paramtype' or 'paramType' to be tolerant
+                              final rawParamType = (detail['paramtype'] ?? detail['paramType'])?.toString().toLowerCase();
+                              final isNumber = rawParamType == 'number';
+
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 6.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    Text(labelAbove, style: Theme.of(context).textTheme.bodyMedium, textAlign: TextAlign.left),
+                                    const SizedBox(height: 6),
+                                    TextFormField(
+                                      controller: controllers[i],
+                                      decoration: InputDecoration(labelText: ''),
+                                      keyboardType: isNumber ? const TextInputType.numberWithOptions(decimal: true, signed: true) : TextInputType.text,
+                                      inputFormatters: isNumber ? <TextInputFormatter>[FilteringTextInputFormatter.allow(RegExp(r'[-0-9\.]'))] : null,
+                                      validator: (v) {
+                                        if (v == null || v.trim().isEmpty) return 'Requerido';
+                                        final value = v.trim();
+                                        if (isNumber) {
+                                          final parsed = num.tryParse(value);
+                                          if (parsed == null) return 'Debe ser un número válido';
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                }),
+              ],
             ),
           ),
         ),
