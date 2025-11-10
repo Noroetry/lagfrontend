@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lagfrontend/controllers/auth_controller.dart';
 import 'package:lagfrontend/widgets/quest_popups_handler.dart';
+import 'package:lagfrontend/widgets/popup_form.dart';
+import 'package:lagfrontend/controllers/quest_controller.dart';
 // Messages feature removed: no imports here
 import 'package:lagfrontend/views/auth/auth_gate.dart'; // Para regresar
 
@@ -27,22 +29,40 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Fila superior con los iconos, alineada a la derecha y con el mismo fondo que el tema
+              // Fila superior con los iconos (transparente), alineada a la derecha
               Container(
-                color: Theme.of(context).scaffoldBackgroundColor,
-                padding: const EdgeInsets.symmetric(horizontal: 0.0, vertical: 4.0),
+                color: Colors.transparent,
+                padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     IconButton(
+                      icon: const Icon(Icons.person),
+                      color: Colors.white,
+                      tooltip: 'Perfil',
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Not implemented yet')));
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.settings),
+                      color: Colors.white,
+                      tooltip: 'Ajustes',
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Not implemented yet')));
+                      },
+                    ),
+                    IconButton(
                       icon: const Icon(Icons.mail_outline),
+                      color: Colors.white,
                       tooltip: 'Mensajes',
                       onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Messages not implemented yet')));
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Not implemented yet')));
                       },
                     ),
                     IconButton(
                       icon: const Icon(Icons.exit_to_app),
+                      color: Colors.white,
                       tooltip: 'Cerrar sesión',
                       onPressed: () async {
                         final navigator = Navigator.of(context);
@@ -74,64 +94,173 @@ class _HomeScreenState extends State<HomeScreen> {
 
               const SizedBox(height: 18),
 
-              // Contenido principal centrado
-              Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      '¡Bienvenido!',
-                      style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 20),
-                    if (authController.currentUser != null) ...[
-                      Text(
-                        'Usuario: ${authController.currentUser!.username}',
-                        style: const TextStyle(fontSize: 20),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Email: ${authController.currentUser!.email}',
-                        style: const TextStyle(fontSize: 16),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'ID: ${authController.currentUser!.id}',
-                        style: const TextStyle(fontSize: 14, color: Colors.white70),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 12),
-                      // Show admin flag
-                      Text(
-                        'Administrador: ${authController.currentUser!.isAdmin ? 'Sí' : 'No'}',
-                        style: const TextStyle(fontSize: 14, color: Colors.white70),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Render any additional fields returned by the backend
-                      Builder(builder: (context) {
-                        final additional = authController.currentUser?.additionalData;
-                        if (additional == null || additional.isEmpty) return const SizedBox.shrink();
-                        return Column(
-                          children: [
-                            const Text('Información adicional:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                            const SizedBox(height: 8),
-                            ...additional.entries.map((e) {
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 2.0),
-                                child: Text('${e.key}: ${e.value}', style: const TextStyle(color: Colors.white70)),
-                              );
-                            }),
-                            const SizedBox(height: 16),
-                          ],
-                        );
-                      }),
-                    ],
-                  ],
+              // Panel: información de usuario (nivel / título / job / rango / barra EXP)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16.0),
+                padding: const EdgeInsets.all(12.0),
+                decoration: BoxDecoration(
+                  color: Colors.transparent,
+                  border: Border.all(color: Colors.white),
+                  borderRadius: BorderRadius.circular(8.0),
                 ),
+                child: Builder(builder: (context) {
+                  final user = authController.currentUser;
+                  final additional = user?.additionalData ?? {};
+
+                  // Try to read some commonly used keys from additionalData
+                  final level = additional['level'] ?? additional['nivel'] ?? additional['xpLevel'];
+                  final title = additional['title'] ?? additional['titulo'] ?? additional['rankTitle'];
+                  final job = additional['job'] ?? additional['profesion'] ?? additional['role'];
+                  final range = additional['range'] ?? additional['rango'];
+
+                  // EXP placeholder: if we have exp and nextExp compute ratio, otherwise null
+                  double? expRatio;
+                  try {
+                    final exp = (additional['exp'] ?? additional['xp']) as num?;
+                    final next = (additional['expToNext'] ?? additional['xpToNext'] ?? additional['next'] ?? 0) as num?;
+                    if (exp != null && next != null && next > 0) {
+                      expRatio = (exp.toDouble() / next.toDouble()).clamp(0.0, 1.0);
+                    }
+                  } catch (_) {
+                    expRatio = null;
+                  }
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Nivel: ${level ?? '—'}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          Text('Rango: ${range ?? '—'}', style: const TextStyle(fontSize: 14, color: Colors.white70)),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text('Título: ${title ?? '—'}', style: const TextStyle(fontSize: 14)),
+                      const SizedBox(height: 4),
+                      Text('Trabajo: ${job ?? '—'}', style: const TextStyle(fontSize: 14, color: Colors.white70)),
+                      const SizedBox(height: 8),
+                      // EXP bar (placeholder)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('EXP', style: TextStyle(fontSize: 12, color: Colors.white70)),
+                          const SizedBox(height: 6),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6.0),
+                            child: expRatio != null
+                                ? LinearProgressIndicator(value: expRatio, minHeight: 10, backgroundColor: Colors.white24, color: Colors.white)
+                                : LinearProgressIndicator(value: 0.0, minHeight: 10, backgroundColor: Colors.white24, color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+                }),
+              ),
+
+              const SizedBox(height: 12),
+
+              // Sección: título de misiones
+              const SizedBox(height: 8),
+              Center(
+                child: Text(
+                  'Misiones',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, decoration: TextDecoration.underline),
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // Panel: misiones activas (state == 'L' o 'C')
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16.0),
+                padding: const EdgeInsets.all(12.0),
+                decoration: BoxDecoration(
+                  color: Colors.transparent,
+                  border: Border.all(color: Colors.white),
+                  borderRadius: BorderRadius.circular(8.0),
+                ),
+                child: Consumer<QuestController>(builder: (context, qc, child) {
+                  if (qc.isLoading) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  final active = qc.quests.where((q) {
+                    try {
+                      final s = q is Map && q['state'] != null ? q['state'].toString() : '';
+                      return s == 'L' || s == 'C';
+                    } catch (_) {
+                      return false;
+                    }
+                  }).toList();
+
+                  if (active.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8.0),
+                      child: Text('No hay misiones activas', style: TextStyle(color: Colors.white70)),
+                    );
+                  }
+
+                  return ListView.separated(
+                    physics: const NeverScrollableScrollPhysics(),
+                    shrinkWrap: true,
+                    itemCount: active.length,
+                    separatorBuilder: (_, __) => const Divider(color: Colors.white24),
+                    itemBuilder: (ctx, idx) {
+                      final q = active[idx];
+                      String questTitle = 'Misión';
+                      String questDescription = '';
+                      String questState = '';
+                      try {
+                        if (q is Map) {
+                          final header = q['header'];
+                          if (header is Map && header['title'] != null) questTitle = header['title'].toString();
+                          questTitle = questTitle.isNotEmpty ? questTitle : (q['title']?.toString() ?? 'Misión');
+                          if (header is Map && header['description'] != null) questDescription = header['description'].toString();
+                          questState = q['state']?.toString() ?? '';
+                        }
+                      } catch (_) {}
+
+                      final checked = questState == 'C';
+
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(6.0),
+                        onTap: () async {
+                          // Build the same info summary used in QuestPopupsHandler
+                          final title = questTitle;
+                          final state = questState;
+                          final description = questDescription;
+                          final infoText = 'Título: $title\nEstado: $state\n\n$description';
+
+                          await showDialog<void>(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (ctx2) => PopupForm(
+                              icon: const Icon(Icons.menu_book),
+                              title: 'QUEST INFO',
+                              description: infoText,
+                              actions: [PopupActionButton(label: 'Aceptar', onPressed: () => Navigator.of(ctx2).pop())],
+                            ),
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: Row(
+                            children: [
+                              Expanded(child: Text(questTitle, style: const TextStyle(color: Colors.white))),
+                              const SizedBox(width: 8),
+                              Icon(
+                                checked ? Icons.check_box : Icons.check_box_outline_blank,
+                                color: Colors.white,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                }),
               ),
               // Handler that listens for quests and shows popups when needed.
               const QuestPopupsHandler(),

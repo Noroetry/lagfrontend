@@ -180,8 +180,9 @@ class _PopupActionButtonState extends State<PopupActionButton> {
   Future<void> _handleTap() async {
     // Animate to pressed state first so user sees the white flash
     setState(() => _pressed = true);
-    // Wait most of the animation duration so the white state is visible
-    await Future.delayed(Duration(milliseconds: (AppTheme.popupButtonAnimationDuration.inMilliseconds * 0.6).round()));
+    // Wait a short, fixed delay so the white pressed state is visible but
+    // doesn't linger too long before executing the action.
+    await Future.delayed(AppTheme.popupButtonPressDelay);
     try {
       widget.onPressed();
     } finally {
@@ -200,14 +201,13 @@ class _PopupActionButtonState extends State<PopupActionButton> {
 
     return AnimatedScale(
       scale: _pressed ? 0.985 : 1.0,
-      duration: AppTheme.popupButtonAnimationDuration,
+      duration: AppTheme.popupButtonPressDuration,
       curve: Curves.easeInOut,
       // Ensure the button width is its intrinsic content width so it doesn't
       // expand to fill available horizontal space in popup layouts.
       child: IntrinsicWidth(
-        child: AnimatedContainer(
-          duration: AppTheme.popupButtonAnimationDuration,
-          curve: Curves.easeInOut,
+        child: Container(
+          // No animation here so color/border change is immediate on setState
           padding: padding,
           decoration: BoxDecoration(
             color: color,
@@ -215,15 +215,22 @@ class _PopupActionButtonState extends State<PopupActionButton> {
             borderRadius: BorderRadius.circular(6.0),
             border: Border.all(color: borderColor, width: 1.0),
           ),
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: _handleTap,
-            onTapDown: (_) => setState(() => _pressed = true),
-            onTapCancel: () => setState(() => _pressed = false),
-            child: DefaultTextStyle(
-              // Use a slightly smaller / tighter label to read as minimal
-              style: Theme.of(context).textTheme.labelLarge!.copyWith(color: textColor, fontSize: 14, fontWeight: FontWeight.w600),
-              child: Center(child: Text(widget.label)),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(6.0),
+              onTap: _handleTap,
+              onTapDown: (_) => setState(() => _pressed = true),
+              onTapCancel: () => setState(() => _pressed = false),
+              splashFactory: InkRipple.splashFactory,
+              child: Padding(
+                padding: EdgeInsets.zero,
+                child: DefaultTextStyle(
+                  // Use a slightly smaller / tighter label to read as minimal
+                  style: Theme.of(context).textTheme.labelLarge!.copyWith(color: textColor, fontSize: 14, fontWeight: FontWeight.w600),
+                  child: Center(child: Text(widget.label)),
+                ),
+              ),
             ),
           ),
         ),

@@ -52,6 +52,12 @@ class AppTheme {
   // Button tweakables for popup action buttons.
   // Duration for the press-state transition (slower -> more tactile feel).
   static const Duration popupButtonAnimationDuration = Duration(milliseconds: 500);
+  // Shorter durations used specifically for the press/release feedback so the
+  // visual 'pressed' state doesn't linger too long after the user releases.
+  static const Duration popupButtonPressDuration = Duration(milliseconds: 120);
+  // Minimal delay to keep the pressed visual visible before executing the
+  // action. Kept short so buttons feel responsive.
+  static const Duration popupButtonPressDelay = Duration(milliseconds: 100);
   // Minimal padding to give a wrapped, compact look for popup buttons.
   // Reduced so popup action buttons (used in Login/Welcome) appear compressed
   // and minimal, matching the welcome screen style.
