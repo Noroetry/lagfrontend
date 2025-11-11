@@ -175,5 +175,49 @@ class QuestService {
       throw ApiException('Error comunicándose con el servidor de quests: $e');
     }
   }
+
+  /// Toggle a quest detail check for the user.
+  /// Endpoint: POST /check-detail-quest
+  /// Body: { userId, idQuestUserDetail, checked }
+  /// Returns the updated quests payload (array) as in other endpoints.
+  Future<List<dynamic>> checkDetailForUser(User user, dynamic idQuestUserDetail, bool checked, {String? token}) async {
+    final uri = Uri.parse('$_baseUrl/check-detail-quest');
+    final headers = <String, String>{'Content-Type': 'application/json'};
+    if (token != null && token.trim().isNotEmpty) headers['Authorization'] = 'Bearer $token';
+
+    final body = <String, dynamic>{'userId': user.id, 'idQuestUserDetail': idQuestUserDetail, 'checked': checked};
+
+    try {
+      if (kDebugMode) {
+        debugPrint('➡️ [QuestService.checkDetailForUser] POST $uri');
+        debugPrint('➡️ [QuestService.checkDetailForUser] headers: $headers');
+        debugPrint('➡️ [QuestService.checkDetailForUser] body: $body');
+      }
+
+      final response = await _client.post(uri, headers: headers, body: jsonEncode(body));
+      if (kDebugMode) {
+        debugPrint('🔍 [QuestService.checkDetailForUser] HTTP ${response.statusCode}');
+        debugPrint('🔍 [QuestService.checkDetailForUser] raw body: ${response.body}');
+      }
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        if (kDebugMode) debugPrint('🔍 [QuestService.checkDetailForUser] decoded JSON: $decoded');
+
+        if (decoded is Map<String, dynamic> && decoded['quests'] is List) {
+          return List<dynamic>.from(decoded['quests']);
+        }
+        if (decoded is List) return decoded;
+        return <dynamic>[];
+      } else if (response.statusCode == 401) {
+        throw UnauthorizedException('Acceso denegado al marcar detalle de quest');
+      } else {
+        throw ApiException('Fallo al marcar detalle de quest: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (e is ApiException || e is UnauthorizedException) rethrow;
+      throw ApiException('Error comunicándose con el servidor de quests: $e');
+    }
+  }
 }
 

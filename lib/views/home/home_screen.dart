@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lagfrontend/controllers/auth_controller.dart';
 import 'package:lagfrontend/widgets/quest_popups_handler.dart';
-import 'package:lagfrontend/widgets/popup_form.dart';
+import 'package:lagfrontend/widgets/quest_detail_popup.dart';
 import 'package:lagfrontend/controllers/quest_controller.dart';
 // Messages feature removed: no imports here
 import 'package:lagfrontend/views/auth/auth_gate.dart'; // Para regresar
@@ -210,14 +210,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     itemBuilder: (ctx, idx) {
                       final q = active[idx];
                       String questTitle = 'Misión';
-                      String questDescription = '';
                       String questState = '';
                       try {
                         if (q is Map) {
                           final header = q['header'];
                           if (header is Map && header['title'] != null) questTitle = header['title'].toString();
                           questTitle = questTitle.isNotEmpty ? questTitle : (q['title']?.toString() ?? 'Misión');
-                          if (header is Map && header['description'] != null) questDescription = header['description'].toString();
                           questState = q['state']?.toString() ?? '';
                         }
                       } catch (_) {}
@@ -228,21 +226,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         borderRadius: BorderRadius.circular(6.0),
                         onTap: () async {
                           // Build the same info summary used in QuestPopupsHandler
-                          final title = questTitle;
-                          final state = questState;
-                          final description = questDescription;
-                          final infoText = 'Título: $title\nEstado: $state\n\n$description';
-
-                          await showDialog<void>(
-                            context: context,
-                            barrierDismissible: false,
-                            builder: (ctx2) => PopupForm(
-                              icon: const Icon(Icons.menu_book),
-                              title: 'QUEST INFO',
-                              description: infoText,
-                              actions: [PopupActionButton(label: 'Aceptar', onPressed: () => Navigator.of(ctx2).pop())],
-                            ),
-                          );
+                          // Show detailed quest popup (modular)
+                          await showQuestDetailPopup(context, q);
                         },
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 8.0),

@@ -162,6 +162,39 @@ class QuestController extends ChangeNotifier {
     return errors;
   }
 
+  /// Toggle a quest detail's checked state. Calls the service and merges the
+  /// returned quests payload into the local list, notifying listeners.
+  Future<List<dynamic>> checkQuestDetail({required dynamic idQuestUserDetail, required bool checked}) async {
+    final user = _userController.currentUser;
+    if (user == null) throw ArgumentError('No current user');
+
+    try {
+      final updated = await _questService.checkDetailForUser(user, idQuestUserDetail, checked, token: _userController.authToken);
+
+      if (updated.isNotEmpty) {
+        for (final a in updated) {
+          try {
+            final aId = a is Map && a['idQuestUser'] != null ? a['idQuestUser'] : (a is Map && a['id'] != null ? a['id'] : null);
+            if (aId != null) {
+              final idx = _quests.indexWhere((q) => q is Map && ((q['idQuestUser'] ?? q['id']) == aId));
+              if (idx >= 0) {
+                _quests[idx] = a;
+              } else {
+                _quests.add(a);
+              }
+            }
+          } catch (_) {}
+        }
+        notifyListeners();
+      }
+
+      return updated;
+    } catch (e) {
+      if (kDebugMode) debugPrint('❌ [QuestController.checkQuestDetail] error: $e');
+      rethrow;
+    }
+  }
+
   /// Submit parameter values for a quest after local validation.
   /// Returns the list of quests returned by the backend (usually updated quest(s)).
   Future<List<dynamic>> submitParamsForQuest(dynamic quest, List<String> inputValues) async {
