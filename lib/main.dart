@@ -77,7 +77,18 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       try {
         final auth = Provider.of<AuthController>(context, listen: false);
-        auth.checkAuthenticationStatus();
+        // Capture QuestController synchronously so we don't use BuildContext across async gaps.
+        final qc = Provider.of<QuestController>(context, listen: false);
+        // Run the auth check and then ensure QuestController also refreshes.
+        // Use a microtask so we don't make this lifecycle callback async.
+        Future.microtask(() async {
+          try {
+            await auth.checkAuthenticationStatus();
+          } catch (_) {}
+          try {
+            await qc.loadQuests();
+          } catch (_) {}
+        });
       } catch (_) {
         // If providers are not ready or during tests, ignore.
       }
