@@ -29,7 +29,16 @@ class AuthController extends ChangeNotifier {
         _authService = authService ?? (throw ArgumentError.notNull('authService')) {
     // userController may be provided (e.g., for DI/testing); otherwise create a default one
     this.userController = userController ?? UserController(UserService(_authService));
+    // Forward UserController changes so listeners of AuthController (UI) receive updates
+    // when the underlying user profile changes.
+    this.userController.addListener(_onUserControllerChanged);
     checkAuthenticationStatus();
+  }
+
+  void _onUserControllerChanged() {
+    // Re-emit AuthController notifications so widgets listening to AuthController
+    // get rebuilt when userController updates the profile/token.
+    notifyListeners();
   }
 
   void _setLoading(bool value) {
@@ -259,5 +268,13 @@ class AuthController extends ChangeNotifier {
     _connectionErrorMessage = null;
     notifyListeners();
     await checkAuthenticationStatus();
+  }
+
+  @override
+  void dispose() {
+    try {
+      userController.removeListener(_onUserControllerChanged);
+    } catch (_) {}
+    super.dispose();
   }
 }

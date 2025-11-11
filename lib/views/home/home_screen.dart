@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:provider/provider.dart';
 import 'package:lagfrontend/controllers/auth_controller.dart';
+import 'package:lagfrontend/controllers/user_controller.dart';
 import 'package:lagfrontend/widgets/quest_popups_handler.dart';
 import 'package:lagfrontend/widgets/quest_detail_popup.dart';
 import 'package:lagfrontend/controllers/quest_controller.dart';
@@ -20,7 +21,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authController = Provider.of<AuthController>(context);
+  // Listen to UserController for profile changes so this widget rebuilds only
+  // when the user data changes. Use AuthController with listen:false for
+  // actions (logout) to avoid unnecessary rebuilds.
+  final authController = Provider.of<AuthController>(context, listen: false);
+  final userController = Provider.of<UserController>(context);
 
     return Scaffold(
       // AppBar eliminado para evitar la flecha de back; botones colocados dentro del body
@@ -105,22 +110,50 @@ class _HomeScreenState extends State<HomeScreen> {
                   borderRadius: BorderRadius.circular(8.0),
                 ),
                 child: Builder(builder: (context) {
-                  final user = authController.currentUser;
+                  final user = userController.currentUser;
                   final additional = user?.additionalData ?? {};
 
-                  // Try to read some commonly used keys from additionalData
-                  final level = additional['level'] ?? additional['nivel'] ?? additional['xpLevel'];
+                  // Try to read some commonly used keys from additionalData.
+                  // The backend will provide new fields:
+                  // - level_number
+                  // - totalExp
+                  // - minExpRequired
+                  // - nextRequiredLevel
                   final title = additional['title'] ?? additional['titulo'] ?? additional['rankTitle'];
                   final job = additional['job'] ?? additional['profesion'] ?? additional['role'];
                   final range = additional['range'] ?? additional['rango'];
 
-                  // EXP placeholder: if we have exp and nextExp compute ratio, otherwise null
+                  // Helper to parse numeric values that may come as int/double or String
+                  num? parseNum(Object? v) {
+                    try {
+                      if (v == null) return null;
+                      if (v is num) return v;
+                      if (v is String) return num.tryParse(v);
+                    } catch (_) {}
+                    return null;
+                  }
+
+                  // Level: prefer explicit backend field, fall back to older keys
+                  final levelNumber = additional['level_number'] ?? additional['level'] ?? additional['nivel'] ?? additional['xpLevel'];
+
+                  // XP fields
+                  final num? totalExp = parseNum(additional['totalExp'] ?? additional['exp'] ?? additional['xp']);
+                  final num? minExp = parseNum(additional['minExpRequired'] ?? additional['minExp']);
+                  final num? nextReq = parseNum(additional['nextRequiredLevel'] ?? additional['expToNext'] ?? additional['xpToNext'] ?? additional['next']);
+
+                  // Compute ratio: (totalExp - minExp) / (nextReq - minExp)
                   double? expRatio;
                   try {
-                    final exp = (additional['exp'] ?? additional['xp']) as num?;
-                    final next = (additional['expToNext'] ?? additional['xpToNext'] ?? additional['next'] ?? 0) as num?;
-                    if (exp != null && next != null && next > 0) {
-                      expRatio = (exp.toDouble() / next.toDouble()).clamp(0.0, 1.0);
+                    if (totalExp != null && minExp != null && nextReq != null) {
+                      final denom = nextReq.toDouble() - minExp.toDouble();
+                      if (denom > 0) {
+                        expRatio = ((totalExp.toDouble() - minExp.toDouble()) / denom).clamp(0.0, 1.0);
+                      } else {
+                        expRatio = 0.0;
+                      }
+                    } else if (totalExp != null && nextReq != null) {
+                      // Fallback: simple total / next
+                      if (nextReq.toDouble() > 0) expRatio = (totalExp.toDouble() / nextReq.toDouble()).clamp(0.0, 1.0);
                     }
                   } catch (_) {
                     expRatio = null;
@@ -132,7 +165,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Nivel: ${level ?? '—'}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          Text('Nivel: ${levelNumber ?? '—'}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                           Text('Rango: ${range ?? '—'}', style: const TextStyle(fontSize: 14, color: Colors.white70)),
                         ],
                       ),
@@ -153,6 +186,17 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ? LinearProgressIndicator(value: expRatio, minHeight: 10, backgroundColor: Colors.white24, color: Colors.white)
                                 : LinearProgressIndicator(value: 0.0, minHeight: 10, backgroundColor: Colors.white24, color: Colors.white),
                           ),
+                          const SizedBox(height: 6),
+                          // Numeric XP label when we have values
+                          Builder(builder: (context) {
+                            try {
+                              if (totalExp != null && nextReq != null) {
+                                final percent = expRatio != null ? (expRatio * 100).toStringAsFixed(0) : '?';
+                                return Text('${totalExp.toInt()} / ${nextReq.toInt()} XP ($percent%)', style: const TextStyle(fontSize: 12, color: Colors.white70));
+                              }
+                            } catch (_) {}
+                            return const SizedBox.shrink();
+                          }),
                         ],
                       ),
                     ],
@@ -374,23 +418,36 @@ class _QuestCountdownState extends State<_QuestCountdown> {
   @override
   Widget build(BuildContext context) {
     final label = _format(_remaining);
+    // Ensure the countdown fits tight vertical constraints by scaling the
+    // label down and constraining the heights of children. This avoids
+    // RenderFlex overflow when the parent gives only ~36px of height.
     return SizedBox(
       width: 60,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 6),
-          // Animate progress changes smoothly
-          if (_startedAt != null)
-            TweenAnimationBuilder<double>(
-              tween: Tween<double>(begin: _fraction, end: _fraction),
-              duration: const Duration(milliseconds: 800),
-              builder: (context, value, child) => LinearProgressIndicator(value: value.clamp(0.0, 1.0), backgroundColor: Colors.white12, color: Colors.green[400], minHeight: 5),
-            )
-          else
-            LinearProgressIndicator(value: null, backgroundColor: Colors.white12, color: Colors.green[400], minHeight: 5),
+          // Constrain label height and allow it to scale down if necessary
+          SizedBox(
+            height: 14,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+            ),
+          ),
+          const SizedBox(height: 4),
+          // Animate progress changes smoothly. Constrain minHeight to keep compact.
+          SizedBox(
+            height: 8,
+            child: _startedAt != null
+                ? TweenAnimationBuilder<double>(
+                    tween: Tween<double>(begin: _fraction, end: _fraction),
+                    duration: const Duration(milliseconds: 800),
+                    builder: (context, value, child) => LinearProgressIndicator(value: value.clamp(0.0, 1.0), backgroundColor: Colors.white12, color: Colors.green[400], minHeight: 8),
+                  )
+                : LinearProgressIndicator(value: null, backgroundColor: Colors.white12, color: Colors.green[400], minHeight: 8),
+          ),
         ],
       ),
     );
