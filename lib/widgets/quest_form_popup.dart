@@ -130,55 +130,46 @@ Future<List<dynamic>?> showQuestFormPopup(BuildContext context, dynamic id, Stri
                   }
                 } catch (_) {}
 
-                String welcome = '';
-                try {
-                  final wm = header['welcomeMessage'] ?? header['welcome_message'] ?? header['welcome'];
-                  if (wm != null) welcome = wm.toString();
-                } catch (_) {}
-
                 final missionLine = periodLabel.isNotEmpty ? 'Requisitos de nueva misión $periodLabel:' : 'Requisitos de nueva misión:';
 
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    RichText(
-                      textAlign: TextAlign.center,
-                      text: TextSpan(
-                        children: [
-                          TextSpan(
-                            text: '$missionLine ',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 16),
-                          ),
-                          TextSpan(
-                            text: '[$title]',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                  color: AppColors.textPrimary,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (welcome.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        '“$welcome”',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              fontStyle: FontStyle.italic,
-                              color: AppColors.textSecondary,
-                            ),
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    Form(
-                      key: formKey,
+                // Constrain height so large forms become scrollable and
+                // allow the keyboard inset to be respected.
+                return LayoutBuilder(builder: (ctxLayout, constraints) {
+                  final maxHeight = MediaQuery.of(ctxLayout).size.height * 0.8;
+                  return ConstrainedBox(
+                    constraints: BoxConstraints(maxHeight: maxHeight),
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.only(bottom: MediaQuery.of(ctxLayout).viewInsets.bottom),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (controllers.isEmpty) const Text('No se requieren parámetros iniciales.'),
-                          ...List<Widget>.generate(controllers.length, (i) {
+                          RichText(
+                            textAlign: TextAlign.center,
+                            text: TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: '$missionLine ',
+                                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 16),
+                                ),
+                                TextSpan(
+                                  text: '[$title]',
+                                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                        color: AppColors.textPrimary,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Form(
+                            key: formKey,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (controllers.isEmpty) const Text('No se requieren parámetros iniciales.'),
+                                ...List<Widget>.generate(controllers.length, (i) {
                             final detail = paramDetails[i];
                             final labelAbove = (detail['descriptionParam'] ?? detail['description'])?.toString() ?? 'Valor inicial';
 
@@ -186,15 +177,19 @@ Future<List<dynamic>?> showQuestFormPopup(BuildContext context, dynamic id, Stri
                             final isNumber = rawParamType == 'number';
 
                             return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 6.0),
+                              padding: const EdgeInsets.symmetric(vertical: 4.0),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   Text(labelAbove, style: Theme.of(context).textTheme.bodyMedium, textAlign: TextAlign.left),
-                                  const SizedBox(height: 6),
+                                  const SizedBox(height: 2),
                                   TextFormField(
                                     controller: controllers[i],
-                                    decoration: const InputDecoration(labelText: ''),
+                                    decoration: const InputDecoration(
+                                      labelText: '',
+                                      isDense: true,
+                                      contentPadding: EdgeInsets.symmetric(vertical: 0.0, horizontal: 12.0),
+                                    ),
                                     keyboardType: isNumber ? const TextInputType.numberWithOptions(decimal: true, signed: true) : TextInputType.text,
                                     inputFormatters: isNumber ? <TextInputFormatter>[FilteringTextInputFormatter.allow(RegExp(r'[-0-9\.]'))] : null,
                                     validator: (v) {
@@ -210,12 +205,15 @@ Future<List<dynamic>?> showQuestFormPopup(BuildContext context, dynamic id, Stri
                                 ],
                               ),
                             );
-                          }),
+                                }),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ),
-                  ],
-                );
+                  );
+                });
               }),
             ],
           ),
