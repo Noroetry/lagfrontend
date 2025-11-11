@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:provider/provider.dart';
 import 'package:lagfrontend/controllers/auth_controller.dart';
 import 'package:lagfrontend/widgets/quest_popups_handler.dart';
@@ -92,12 +93,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-              const SizedBox(height: 18),
+              const SizedBox(height: 12),
 
               // Panel: información de usuario (nivel / título / job / rango / barra EXP)
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16.0),
-                padding: const EdgeInsets.all(12.0),
+                padding: const EdgeInsets.all(8.0),
                 decoration: BoxDecoration(
                   color: Colors.transparent,
                   border: Border.all(color: Colors.white),
@@ -159,18 +160,18 @@ class _HomeScreenState extends State<HomeScreen> {
                 }),
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
 
               // Sección: título de misiones
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Center(
                 child: Text(
                   'Misiones',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, decoration: TextDecoration.underline),
+                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, decoration: TextDecoration.underline),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
 
               // Panel: misiones activas (state == 'L' o 'C')
               Container(
@@ -229,16 +230,41 @@ class _HomeScreenState extends State<HomeScreen> {
                           // Show detailed quest popup (modular)
                           await showQuestDetailPopup(context, q);
                         },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: SizedBox(
+                          height: 36,
                           child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              Expanded(child: Text(questTitle, style: const TextStyle(color: Colors.white))),
-                              const SizedBox(width: 8),
-                              Icon(
-                                checked ? Icons.check_box : Icons.check_box_outline_blank,
-                                color: Colors.white,
+                              Expanded(
+                                child: Text(
+                                  questTitle,
+                                  style: TextStyle(color: checked ? Colors.green[400] : Colors.white),
+                                ),
                               ),
+                              const SizedBox(width: 8),
+                              // If completed show a reward icon (future rewards), otherwise show countdown until expiration
+                              if (checked)
+                                IconButton(
+                                  icon: const Icon(Icons.shopping_bag_outlined),
+                                  color: Colors.amber,
+                                  tooltip: 'Recompensas',
+                                  onPressed: () {
+                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No implementado aún')));
+                                  },
+                                )
+                              else
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 4.0),
+                                  child: SizedBox(
+                                    height: 40,
+                                    child: Center(
+                                      child: _QuestCountdown(
+                                        dateExpirationRaw: q is Map ? q['dateExpiration'] : null,
+                                        dateReadRaw: q is Map ? q['dateRead'] : null,
+                                      ),
+                                    ),
+                                  ),
+                                ),
                             ],
                           ),
                         ),
@@ -252,6 +278,120 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Small widget that displays a live countdown to [dateExpirationRaw].
+///
+/// - `dateExpirationRaw` and `dateReadRaw` can be either ISO-8601 strings or
+///   DateTime objects (or null). If `dateReadRaw` is provided we use it to
+///   compute the full duration so the progress bar shows fraction remaining.
+class _QuestCountdown extends StatefulWidget {
+  final dynamic dateExpirationRaw;
+  final dynamic dateReadRaw;
+
+  const _QuestCountdown({this.dateExpirationRaw, this.dateReadRaw});
+
+  @override
+  State<_QuestCountdown> createState() => _QuestCountdownState();
+}
+
+class _QuestCountdownState extends State<_QuestCountdown> {
+  Timer? _ticker;
+  Duration _remaining = Duration.zero;
+  double _fraction = 0.0;
+  DateTime? _expiresAt;
+  DateTime? _startedAt;
+
+  @override
+  void initState() {
+    super.initState();
+    _parseDates();
+    _update();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _update());
+  }
+
+  DateTime? _parse(dynamic raw) {
+    try {
+      if (raw == null) return null;
+      if (raw is DateTime) return raw.toUtc();
+      if (raw is String) return DateTime.parse(raw).toUtc();
+      if (raw is int) return DateTime.fromMillisecondsSinceEpoch(raw).toUtc();
+    } catch (_) {}
+    return null;
+  }
+
+  void _parseDates() {
+    _expiresAt = _parse(widget.dateExpirationRaw);
+    _startedAt = _parse(widget.dateReadRaw);
+  }
+
+  void _update() {
+    final now = DateTime.now().toUtc();
+    if (_expiresAt == null) {
+      setState(() {
+        _remaining = Duration.zero;
+        _fraction = 0.0;
+      });
+      return;
+    }
+
+    final rem = _expiresAt!.difference(now);
+    final total = (_startedAt != null) ? _expiresAt!.difference(_startedAt!) : null;
+
+    final clamped = rem.isNegative ? Duration.zero : rem;
+    double frac = 0.0;
+    if (total != null && total.inMilliseconds > 0) {
+      frac = clamped.inMilliseconds / total.inMilliseconds;
+      if (frac < 0) frac = 0.0;
+      if (frac > 1) frac = 1.0;
+    }
+
+    setState(() {
+      _remaining = clamped;
+      _fraction = frac;
+    });
+  }
+
+  String _format(Duration d) {
+    if (d.inSeconds <= 0) return '00:00:00';
+    final days = d.inDays;
+    final hours = d.inHours.remainder(24).toString().padLeft(2, '0');
+    final mins = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final secs = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    if (days > 0) return '${days}d $hours:$mins:$secs';
+    return '$hours:$mins:$secs';
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final label = _format(_remaining);
+    return SizedBox(
+      width: 60,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          // Animate progress changes smoothly
+          if (_startedAt != null)
+            TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: _fraction, end: _fraction),
+              duration: const Duration(milliseconds: 800),
+              builder: (context, value, child) => LinearProgressIndicator(value: value.clamp(0.0, 1.0), backgroundColor: Colors.white12, color: Colors.green[400], minHeight: 5),
+            )
+          else
+            LinearProgressIndicator(value: null, backgroundColor: Colors.white12, color: Colors.green[400], minHeight: 5),
+        ],
       ),
     );
   }
