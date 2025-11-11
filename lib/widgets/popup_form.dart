@@ -2,10 +2,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:lagfrontend/theme/app_theme.dart';
 
-/// Reusable popup form / notification panel used across the app.
-///
-/// Use PopupForm(title: ..., icon: ..., description: ..., actions: [...])
-/// You can pass `child` to render custom content inside the panel.
 class PopupForm extends StatefulWidget {
   final Widget? icon;
   final String title;
@@ -122,15 +118,7 @@ class _PopupFormState extends State<PopupForm> with SingleTickerProviderStateMix
                         ],
                         if (widget.actions != null && widget.actions!.isNotEmpty) ...[
                           const SizedBox(height: 16),
-                          // If a single action widget is provided (for example a
-                          // Column containing its own button row), render it
-                          // directly. Otherwise, render a horizontal row of the
-                          // provided action widgets with spacing.
                           if (widget.actions!.length == 1)
-                            // Center a single action so it doesn't stretch to the
-                            // full popup width. This keeps the button's borders
-                            // tight around its label and allows reusing the
-                            // same button widgets used elsewhere (login/register).
                             Center(child: widget.actions!.first)
                             else
                             Row(
@@ -156,12 +144,6 @@ class _PopupFormState extends State<PopupForm> with SingleTickerProviderStateMix
   }
 }
 
-/// Small action button used in popups.
-///
-/// Visual behavior:
-/// - Small wrapped padding with a subtle border
-/// - Elevation for depth; reduces on press to give tactile feel
-/// - Turns white while pressed (and text inverts) before executing action
 class PopupActionButton extends StatefulWidget {
   final String label;
   final VoidCallback onPressed;
@@ -178,10 +160,7 @@ class _PopupActionButtonState extends State<PopupActionButton> {
   bool _pressed = false;
 
   Future<void> _handleTap() async {
-    // Animate to pressed state first so user sees the white flash
     setState(() => _pressed = true);
-    // Wait a short, fixed delay so the white pressed state is visible but
-    // doesn't linger too long before executing the action.
     await Future.delayed(AppTheme.popupButtonPressDelay);
     try {
       widget.onPressed();

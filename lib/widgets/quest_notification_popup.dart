@@ -1,0 +1,105 @@
+import 'package:flutter/material.dart';
+import 'package:lagfrontend/widgets/popup_form.dart';
+import 'package:lagfrontend/theme/app_theme.dart';
+
+/// Shows the notification-style quest popup (state 'N').
+/// Returns true if the user accepted, false otherwise.
+Future<bool> showQuestNotificationPopup(BuildContext context, dynamic quest) async {
+  if (!Navigator.of(context).mounted) return false;
+
+  // Determine title/header safely from the quest map
+  Map<String, dynamic> header = {};
+  String title = '—';
+  try {
+    if (quest is Map) {
+      final h = quest['header'];
+      if (h is Map<String, dynamic>) header = h;
+      title = header['title']?.toString() ?? title;
+    }
+  } catch (_) {}
+
+  // Determine period label: D->diaria, W->semanal, M->mensual, otherwise blank
+  String periodLabel = '';
+  try {
+    final dynamic p = (quest is Map && quest['period'] != null)
+        ? quest['period']
+        : (header['period'] ?? header['periodo']);
+    if (p != null) {
+      final ps = p.toString().toUpperCase();
+      if (ps == 'D') {
+        periodLabel = 'diaria';
+      } else if (ps == 'W') {
+        periodLabel = 'semanal';
+      } else if (ps == 'M') {
+        periodLabel = 'mensual';
+      }
+    }
+  } catch (_) {}
+
+  // Welcome message (newly added field in header)
+  String welcome = '';
+  try {
+    final wm = header['welcomeMessage'] ?? header['welcome_message'] ?? header['welcome'];
+    if (wm != null) {
+      welcome = wm.toString();
+    }
+  } catch (_) {}
+
+  final missionLine = periodLabel.isNotEmpty ? 'Nueva misión $periodLabel:' : 'Nueva misión:';
+
+  final child = Material(
+    color: Colors.transparent,
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: 20),
+        RichText(
+          textAlign: TextAlign.center,
+          text: TextSpan(
+            children: [
+              TextSpan(
+                text: '$missionLine ',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 13),
+              ),
+              TextSpan(
+                text: '[ $title ]',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+              ),
+            ],
+          ),
+        ),
+        if (welcome.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          Text(
+            '“$welcome”',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontStyle: FontStyle.italic,
+                  color: AppColors.textSecondary,
+                ),
+          ),
+        ],
+        const SizedBox(height: 20),
+      ],
+    ),
+  );
+
+  final accepted = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (ctx) => PopupForm(
+      icon: const Icon(Icons.priority_high),
+      title: 'NUEVA MISIÓN',
+      actions: [
+        PopupActionButton(label: 'Aceptar', onPressed: () => Navigator.of(ctx).pop(true)),
+      ],
+      child: child,
+    ),
+  );
+
+  return accepted == true;
+}
