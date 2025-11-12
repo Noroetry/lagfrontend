@@ -77,24 +77,11 @@ class QuestController extends ChangeNotifier {
     if (user == null) throw ArgumentError('No current user');
     try {
       final activated = await _questService.activateQuestForUser(user, questUserId, token: _userController.authToken);
-      // Replace or insert activated quests into local list
-      if (activated.isNotEmpty) {
-        for (final a in activated) {
-          try {
-            // new backend uses idQuestUser as per-user quest id
-            final aId = a is Map && a['idQuestUser'] != null ? a['idQuestUser'] : (a is Map && a['id'] != null ? a['id'] : null);
-            if (aId != null) {
-              final idx = _quests.indexWhere((q) => q is Map && ((q['idQuestUser'] ?? q['id']) == aId));
-              if (idx >= 0) {
-                _quests[idx] = a;
-              } else {
-                _quests.add(a);
-              }
-            }
-          } catch (_) {}
-        }
-        notifyListeners();
-      }
+      
+      // Force a full reload from backend to ensure we get correct dateExpiration
+      // (especially for weekdays quests where backend calculates next valid day)
+      await loadQuests();
+      
       return activated;
     } catch (e) {
       if (kDebugMode) debugPrint('❌ [QuestController.activateQuest] error: $e');
@@ -171,22 +158,9 @@ class QuestController extends ChangeNotifier {
     try {
       final updated = await _questService.checkDetailForUser(user, idQuestUserDetail, checked, token: _userController.authToken);
 
-      if (updated.isNotEmpty) {
-        for (final a in updated) {
-          try {
-            final aId = a is Map && a['idQuestUser'] != null ? a['idQuestUser'] : (a is Map && a['id'] != null ? a['id'] : null);
-            if (aId != null) {
-              final idx = _quests.indexWhere((q) => q is Map && ((q['idQuestUser'] ?? q['id']) == aId));
-              if (idx >= 0) {
-                _quests[idx] = a;
-              } else {
-                _quests.add(a);
-              }
-            }
-          } catch (_) {}
-        }
-        notifyListeners();
-      }
+      // Force a full reload from backend to ensure we get correct dateExpiration
+      // (especially for weekdays quests where backend calculates next valid day)
+      await loadQuests();
 
       return updated;
     } catch (e) {
@@ -264,25 +238,9 @@ class QuestController extends ChangeNotifier {
     try {
       final submitted = await _questService.submitParamsForUser(user, idQuest, valuesForBackend, token: _userController.authToken);
 
-      // Merge/replace returned quests into local list (similar to activate)
-      if (submitted.isNotEmpty) {
-        for (final a in submitted) {
-          try {
-            final aId = a is Map && a['idQuestUser'] != null
-                ? a['idQuestUser']
-                : (a is Map && a['id'] != null ? a['id'] : null);
-            if (aId != null) {
-              final idx = _quests.indexWhere((q) => q is Map && ((q['idQuestUser'] ?? q['id']) == aId));
-              if (idx >= 0) {
-                _quests[idx] = a;
-              } else {
-                _quests.add(a);
-              }
-            }
-          } catch (_) {}
-        }
-        notifyListeners();
-      }
+      // Force a full reload from backend to ensure we get correct dateExpiration
+      // (especially for weekdays quests where backend calculates next valid day)
+      await loadQuests();
 
       return submitted;
     } catch (e) {

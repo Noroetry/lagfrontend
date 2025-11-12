@@ -116,6 +116,7 @@ class _QuestPopupsHandlerState extends State<QuestPopupsHandler> {
 
     final qc = Provider.of<QuestController>(context, listen: false);
     if (state == 'N') {
+      // Quests en estado N: mostrar notificación y al aceptar llamar a activate
       final accepted = await _showNotificationPopup(quest);
       if (!accepted) {
         _shownQuestIds.add(id);
@@ -137,16 +138,30 @@ class _QuestPopupsHandlerState extends State<QuestPopupsHandler> {
         _shownQuestIds.add(id);
       }
     } else if (state == 'P') {
+      // Quests en estado P: primero mostrar notificación, luego formulario,
+      // y solo después de submit-params exitoso llamar a activate
+      final accepted = await _showNotificationPopup(quest);
+      if (!accepted) {
+        _shownQuestIds.add(id);
+        return;
+      }
+
       try {
+        // Mostrar el formulario para capturar parámetros
         final submitted = await _showFormPopup(id, title, quest);
 
         if (submitted != null && submitted.isNotEmpty) {
-          final next = submitted.first;
-          // Process any quest returned by the backend before marking this
-          // quest as shown. This allows the backend to return the same
-          // quest with updated state (e.g., from 'P' -> 'N') and have it
-          // processed immediately.
-          await _processQuest(next);
+          // submit-params fue exitoso, ahora llamar a activate
+          try {
+            final activated = await qc.activateQuest(id);
+            if (!mounted) return;
+            if (activated.isNotEmpty) {
+              final info = activated.first;
+              await _processQuest(info);
+            }
+          } catch (e) {
+            debugPrint('❌ [_processQuest activate after submit] error: $e');
+          }
         }
       } catch (e) {
         debugPrint('❌ [_processQuest submit] error: $e');
