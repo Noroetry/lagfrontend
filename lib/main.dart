@@ -4,12 +4,13 @@ import 'package:provider/provider.dart';
 import 'package:lagfrontend/controllers/auth_controller.dart';
 import 'package:lagfrontend/controllers/user_controller.dart';
 import 'package:lagfrontend/controllers/quest_controller.dart';
+import 'package:lagfrontend/controllers/message_controller.dart';
 import 'package:lagfrontend/utils/cookie_client.dart';
 import 'package:lagfrontend/services/auth_service.dart';
 import 'package:lagfrontend/services/i_auth_service.dart';
 import 'package:lagfrontend/services/quest_service.dart';
+import 'package:lagfrontend/services/message_service.dart';
 import 'package:lagfrontend/services/user_service.dart';
-// Messages feature removed: messages controller and services are not provided
 import 'package:lagfrontend/views/auth/auth_gate.dart'; 
 import 'package:lagfrontend/views/home/home_screen.dart'; 
 import 'package:lagfrontend/theme/app_theme.dart';
@@ -24,6 +25,8 @@ void main() {
   Provider<IAuthService>(create: (context) => AuthService(client: context.read<CookieClient>())),
   // Provide QuestService so controllers can call backend quests endpoints (uses same cookie-enabled client)
   Provider<QuestService>(create: (context) => QuestService(client: context.read<CookieClient>())),
+  // Provide MessageService for message-related operations
+  Provider<MessageService>(create: (context) => MessageService(client: context.read<CookieClient>())),
 
   // Provide a separate UserController (backed by UserService) so the rest of the
   // app can read profile, inventory, levels, etc. directly from the provider.
@@ -39,8 +42,15 @@ void main() {
     lazy: false,
   ),
 
+  // MessageController manages user messages - created BEFORE QuestController
+  // so messages are loaded and shown first
+  ChangeNotifierProvider<MessageController>(
+    create: (context) => MessageController(context.read<UserController>(), context.read<MessageService>()),
+    lazy: false,
+  ),
+
   // QuestController depends on the UserController instance owned by AuthController (or the provided one),
-  // so create it after AuthController.
+  // so create it after AuthController and MessageController.
   ChangeNotifierProvider<QuestController>(
     create: (context) => QuestController(context.read<AuthController>().userController, context.read<QuestService>()),
     lazy: false,
@@ -72,20 +82,27 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 
   @override
+  @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
       try {
         final auth = Provider.of<AuthController>(context, listen: false);
-        // Capture QuestController synchronously so we don't use BuildContext across async gaps.
+        // Capture MessageController and QuestController synchronously so we don't use BuildContext across async gaps.
+        final mc = Provider.of<MessageController>(context, listen: false);
         final qc = Provider.of<QuestController>(context, listen: false);
-        // Run the auth check and then ensure QuestController also refreshes.
+        // Run the auth check and then ensure MessageController refreshes BEFORE QuestController.
         // Use a microtask so we don't make this lifecycle callback async.
         Future.microtask(() async {
           try {
             await auth.checkAuthenticationStatus();
           } catch (_) {}
           try {
+            // Load messages FIRST
+            await mc.loadMessages();
+          } catch (_) {}
+          try {
+            // Then load quests
             await qc.loadQuests();
           } catch (_) {}
         });

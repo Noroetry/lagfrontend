@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:lagfrontend/widgets/quest_popups_handler.dart';
+import 'package:lagfrontend/widgets/coordinated_popups_handler.dart';
 import 'package:lagfrontend/views/home/widgets/home_app_bar.dart';
 import 'package:lagfrontend/views/home/widgets/user_info_panel.dart';
 import 'package:lagfrontend/views/home/widgets/active_quests_panel.dart';
+import 'package:lagfrontend/views/home/widgets/unread_messages_panel.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -31,6 +32,27 @@ class _HomeScreenState extends State<HomeScreen> {
 
               const SizedBox(height: 8),
 
+              // Messages section title
+              const SizedBox(height: 6),
+              Center(
+                child: Text(
+                  'Mensajes pendientes',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+
+              // Unread messages panel
+              const UnreadMessagesPanel(),
+
+              const SizedBox(height: 8),
+
               // Quests section title
               const SizedBox(height: 6),
               Center(
@@ -50,8 +72,9 @@ class _HomeScreenState extends State<HomeScreen> {
               // Active quests panel
               const ActiveQuestsPanel(),
 
-              // Handler that listens for quests and shows popups when needed
-              const QuestPopupsHandler(),
+              // Coordinated handler that shows messages FIRST, then quests
+              // This prevents popups from overlapping
+              const CoordinatedPopupsHandler(),
             ],
           ),
         ),

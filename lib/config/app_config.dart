@@ -27,7 +27,8 @@ class AppConfig {
   // --- Resource endpoints ---
   static String get usersApiUrl => endpoint('/users');
   static String get questsApiUrl => endpoint('/quests');
-  // Add other resource endpoints here, e.g. itemsApiUrl, messagesApiUrl, etc.
+  static String get messagesApiUrl => endpoint('/messages');
+  // Add other resource endpoints here, e.g. itemsApiUrl, etc.
 
   // Ping lives under the API root (e.g. /api/ping)
   static String get pingUrl => endpoint('/ping');
