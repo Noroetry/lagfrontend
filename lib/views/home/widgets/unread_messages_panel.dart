@@ -45,23 +45,20 @@ class UnreadMessagesPanel extends StatelessWidget {
             return InkWell(
               borderRadius: BorderRadius.circular(6.0),
               onTap: () async {
-                // Show message detail popup
-                await showMessageDetailPopup(
-                  context,
-                  message,
-                  onAccept: () async {
-                    // Mark message as read
-                    try {
-                      await mc.markAsRead(message.id);
-                    } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Error al marcar mensaje: $e')),
-                        );
-                      }
-                    }
-                  },
-                );
+                // Show message detail popup and WAIT for it to close
+                await showMessageDetailPopup(context, message);
+
+                // AFTER the popup is closed, mark as read
+                if (!context.mounted) return;
+                try {
+                  await mc.markAsRead(message.id);
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error al marcar mensaje: $e')),
+                    );
+                  }
+                }
               },
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8.0),

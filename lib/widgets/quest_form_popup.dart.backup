@@ -130,7 +130,7 @@ Future<List<dynamic>?> showQuestFormPopup(BuildContext context, dynamic id, Stri
                   }
                 } catch (_) {}
 
-                final missionLine = periodLabel.isNotEmpty ? 'Misión $periodLabel:' : 'Misión:';
+                final missionLine = periodLabel.isNotEmpty ? 'Requisitos de nueva misión $periodLabel:' : 'Requisitos de nueva misión:';
 
                 // Constrain height so large forms become scrollable and
                 // allow the keyboard inset to be respected.
@@ -143,21 +143,60 @@ Future<List<dynamic>?> showQuestFormPopup(BuildContext context, dynamic id, Stri
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            missionLine,
+                          RichText(
                             textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 14),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '[$title]',
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              color: AppColors.textPrimary,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                            text: TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: '$missionLine ',
+                                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 16),
+                                ),
+                                TextSpan(
+                                  text: '[$title]',
+                                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                        color: AppColors.textPrimary,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                ),
+                              ],
                             ),
                           ),
+                          // Centered welcomeMessage and description if present
+                          Builder(builder: (ctxExtra) {
+                            String welcome = '';
+                            String description = '';
+                            try {
+                              final wm = header['welcomeMessage'] ?? header['welcome_message'] ?? header['welcome'];
+                              if (wm != null) welcome = wm.toString();
+                            } catch (_) {}
+                            try {
+                              final desc = header['description'] ?? header['descripcion'];
+                              if (desc != null) description = desc.toString();
+                            } catch (_) {}
+
+                            final widgets = <Widget>[];
+                            if (welcome.isNotEmpty) {
+                              widgets.add(const SizedBox(height: 10));
+                              widgets.add(Text(
+                                '“$welcome”',
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      fontStyle: FontStyle.italic,
+                                      color: AppColors.textSecondary,
+                                    ),
+                              ));
+                            }
+                            if (description.isNotEmpty) {
+                              widgets.add(const SizedBox(height: 10));
+                              widgets.add(Text(
+                                description,
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ));
+                            }
+                            return Column(children: widgets);
+                          }),
                           const SizedBox(height: 12),
                           Form(
                             key: formKey,

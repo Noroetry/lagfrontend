@@ -69,6 +69,8 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  bool _hasHandledInitialResume = false;
+
   @override
   void initState() {
     super.initState();
@@ -86,6 +88,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
+      if (!_hasHandledInitialResume) {
+        _hasHandledInitialResume = true;
+        debugPrint('⏯️ [Main] Initial resume handled by HomeScreen bootstrap, skipping double load');
+        return;
+      }
+
       try {
         final auth = Provider.of<AuthController>(context, listen: false);
         // Capture MessageController and QuestController synchronously so we don't use BuildContext across async gaps.
@@ -94,17 +102,35 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         // Run the auth check and then ensure MessageController refreshes BEFORE QuestController.
         // Use a microtask so we don't make this lifecycle callback async.
         Future.microtask(() async {
+          final timestamp = DateTime.now().toString().substring(11, 23);
+          debugPrint('🚀 [$timestamp] [Main] Starting initial data load...');
+          
           try {
             await auth.checkAuthenticationStatus();
-          } catch (_) {}
+            debugPrint('✅ [$timestamp] [Main] Auth checked');
+          } catch (e) {
+            debugPrint('❌ [$timestamp] [Main] Auth check failed: $e');
+          }
+          
           try {
             // Load messages FIRST
+            debugPrint('📬 [$timestamp] [Main] Loading messages...');
             await mc.loadMessages();
-          } catch (_) {}
+            debugPrint('✅ [$timestamp] [Main] Messages loaded');
+          } catch (e) {
+            debugPrint('❌ [$timestamp] [Main] Messages load failed: $e');
+          }
+          
           try {
             // Then load quests
+            debugPrint('⚔️ [$timestamp] [Main] Loading quests...');
             await qc.loadQuests();
-          } catch (_) {}
+            debugPrint('✅ [$timestamp] [Main] Quests loaded');
+          } catch (e) {
+            debugPrint('❌ [$timestamp] [Main] Quests load failed: $e');
+          }
+          
+          debugPrint('🎉 [$timestamp] [Main] Initial data load complete - CoordinatedPopupsHandler will now process');
         });
       } catch (_) {
         // If providers are not ready or during tests, ignore.

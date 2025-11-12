@@ -306,13 +306,9 @@ Future<void> showQuestDetailPopup(BuildContext context, dynamic quest) async {
     },
   );
 
-  // After the popup is closed, ensure the QuestController synchronizes with the backend
-  // so the Home screen and future popups reflect the authoritative state.
-  try {
-    if (rootNav.mounted) {
-      final qc = Provider.of<QuestController>(rootNav.context, listen: false);
-      // Fire-and-forget refresh; controller will notify listeners when done.
-      qc.loadQuests();
-    }
-  } catch (_) {}
+  // ✅ NO recargar quests desde el servidor aquí - el controller ya actualiza
+  // su estado localmente cuando se marcan detalles. Recargar causaría que
+  // los popups se muestren múltiples veces si el backend aún devuelve quests
+  // en estado 'N' o 'P'.
+  // La sincronización local en checkQuestDetail() es suficiente.
 }

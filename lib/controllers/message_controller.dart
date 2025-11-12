@@ -13,12 +13,9 @@ class MessageController extends ChangeNotifier {
   String? _error;
 
   MessageController(this._userController, this._messageService) {
-    // React to user changes
+    // React to user changes - but DON'T auto-load to avoid redundant calls
+    // The app will explicitly call loadMessages() after login/register
     _userController.addListener(_onUserChanged);
-    // If there's already a user, try to load messages
-    if (_userController.isAuthenticated) {
-      loadMessages();
-    }
   }
 
   List<Message> get messages => _messages;
@@ -28,13 +25,13 @@ class MessageController extends ChangeNotifier {
   int get unreadCount => unreadMessages.length;
 
   void _onUserChanged() {
-    if (_userController.isAuthenticated) {
-      loadMessages();
-    } else {
-      // Clear messages when user logs out
+    if (!_userController.isAuthenticated) {
+      // Only clear messages when user logs out
       _messages = [];
       notifyListeners();
     }
+    // When user logs in, main.dart will explicitly call loadMessages()
+    // This avoids redundant backend calls
   }
 
   /// Load all messages for the current user
@@ -88,7 +85,8 @@ class MessageController extends ChangeNotifier {
         debugPrint('✅ [MessageController.markAsRead] response: $response');
       }
 
-      // Update local state
+      // Update local state immediately - no need to reload from backend
+      // HomeScreen will refresh all data after popups are complete
       final index = _messages.indexWhere((m) => m.id == messageUserId);
       if (index != -1) {
         final message = _messages[index];
@@ -104,9 +102,6 @@ class MessageController extends ChangeNotifier {
         );
         notifyListeners();
       }
-
-      // Optionally reload messages to sync with server
-      // await loadMessages();
     } catch (e) {
       if (kDebugMode) debugPrint('❌ [MessageController.markAsRead] error: $e');
       rethrow;

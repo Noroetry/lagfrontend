@@ -38,7 +38,6 @@ class AuthService implements IAuthService {
 
     if (response.statusCode == 200) {
       try {
-        debugPrint('🔍 [AuthService.login] raw body: ${response.body}');
         final decoded = jsonDecode(response.body);
         if (decoded is! Map<String, dynamic>) throw ApiException('Unexpected login response shape');
         return AuthResponse.fromJson(decoded);
@@ -66,7 +65,6 @@ class AuthService implements IAuthService {
 
     if (response.statusCode == 200 || response.statusCode == 201) {
       try {
-        debugPrint('🔍 [AuthService.register] raw body: ${response.body}');
         final decoded = jsonDecode(response.body);
         if (decoded is! Map<String, dynamic>) throw ApiException('Unexpected register response shape');
         return AuthResponse.fromJson(decoded);
@@ -90,7 +88,6 @@ class AuthService implements IAuthService {
 
     if (response.statusCode == 200) {
       try {
-        debugPrint('🔍 [AuthService.getProfile] raw body: ${response.body}');
         final decoded = jsonDecode(response.body);
         if (decoded is! Map<String, dynamic>) {
           throw ApiException('Unexpected /me response shape: not an object');

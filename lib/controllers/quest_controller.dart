@@ -15,26 +15,75 @@ class QuestController extends ChangeNotifier {
   String? _error;
 
   QuestController(this._userController, this._questService) {
-    // react to user changes
+    // React to user changes - but DON'T auto-load to avoid redundant calls
+    // The app will explicitly call loadQuests() after login/register
     _userController.addListener(_onUserChanged);
-    // if there's already a user, try to load quests
-    if (_userController.isAuthenticated) {
-      loadQuests();
-    }
   }
 
   List<dynamic> get quests => _quests;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
+  String? _idAsString(dynamic value) {
+    if (value == null) return null;
+    final str = value.toString();
+    if (str.isEmpty || str.toLowerCase() == 'null') return null;
+    return str;
+  }
+
+  bool _removeQuestById(dynamic questId) {
+    final targetId = _idAsString(questId);
+    if (targetId == null) return false;
+    final originalLength = _quests.length;
+    _quests.removeWhere((q) {
+      if (q is! Map) return false;
+      final existingId = _idAsString(q['idQuestUser'] ?? q['id']);
+      return existingId == targetId;
+    });
+    return originalLength != _quests.length;
+  }
+
+  bool _upsertQuests(List<dynamic> quests) {
+    if (quests.isEmpty) return false;
+    var changed = false;
+    for (final quest in quests) {
+      if (quest is! Map) {
+        _quests.add(quest);
+        changed = true;
+        continue;
+      }
+
+      final questId = _idAsString(quest['idQuestUser'] ?? quest['id']);
+      if (questId == null) {
+        _quests.add(quest);
+        changed = true;
+        continue;
+      }
+
+      final index = _quests.indexWhere((existing) {
+        if (existing is! Map) return false;
+        final existingId = _idAsString(existing['idQuestUser'] ?? existing['id']);
+        return existingId == questId;
+      });
+
+      if (index != -1) {
+        _quests[index] = quest;
+      } else {
+        _quests.add(quest);
+      }
+      changed = true;
+    }
+    return changed;
+  }
+
   void _onUserChanged() {
-    if (_userController.isAuthenticated) {
-      loadQuests();
-    } else {
-      // clear quests when user logs out
+    if (!_userController.isAuthenticated) {
+      // Only clear quests when user logs out
       _quests = [];
       notifyListeners();
     }
+    // When user logs in, main.dart will explicitly call loadQuests()
+    // This avoids redundant backend calls
   }
 
   Future<void> loadQuests() async {
@@ -42,21 +91,17 @@ class QuestController extends ChangeNotifier {
     if (user == null) return;
     _isLoading = true;
     _error = null;
-    if (kDebugMode) debugPrint('🧭 [QuestController.loadQuests] starting for userId=${user.id} tokenPresent=${_userController.authToken != null}');
     notifyListeners();
 
     try {
-  // Pass auth token from UserController if available so server can authorize the request
-  _quests = await _questServiceCall(user);
-  if (kDebugMode) debugPrint('🔎 [QuestController] raw quests: $_quests');
-      if (kDebugMode) debugPrint('✅ [QuestController.loadQuests] loaded ${_quests.length} quests');
-    } catch (e) {
-      _error = e.toString();
-      if (kDebugMode) debugPrint('❌ [QuestController.loadQuests] error: $_error');
-      _quests = [];
-    } finally {
-      _isLoading = false;
-      notifyListeners();
+    // Pass auth token from UserController if available so server can authorize the request
+    _quests = await _questServiceCall(user);
+      } catch (e) {
+        _error = e.toString();
+        _quests = [];
+      } finally {
+        _isLoading = false;
+        notifyListeners();
     }
   }
 
@@ -72,16 +117,25 @@ class QuestController extends ChangeNotifier {
 
   /// Activate a quest (user accepted). Returns the activated quest(s) from server
   /// and updates the local _quests list replacing the matching questUser id.
+  /// NO reloads from backend - HomeScreen will refresh after all popups complete.
   Future<List<dynamic>> activateQuest(dynamic questUserId) async {
     final user = _userController.currentUser;
     if (user == null) throw ArgumentError('No current user');
     try {
       final activated = await _questService.activateQuestForUser(user, questUserId, token: _userController.authToken);
-      
-      // Force a full reload from backend to ensure we get correct dateExpiration
-      // (especially for weekdays quests where backend calculates next valid day)
-      await loadQuests();
-      
+
+      var changed = false;
+      if (activated.isNotEmpty) {
+        changed = _upsertQuests(activated);
+      } else {
+        changed = _removeQuestById(questUserId);
+      }
+
+      if (changed && kDebugMode) {
+        debugPrint('✅ [QuestController.activateQuest] Updated local quests without reload');
+      }
+      if (changed) notifyListeners();
+
       return activated;
     } catch (e) {
       if (kDebugMode) debugPrint('❌ [QuestController.activateQuest] error: $e');
@@ -151,6 +205,7 @@ class QuestController extends ChangeNotifier {
 
   /// Toggle a quest detail's checked state. Calls the service and merges the
   /// returned quests payload into the local list, notifying listeners.
+  /// NO reloads from backend - state is synchronized locally.
   Future<List<dynamic>> checkQuestDetail({required dynamic idQuestUserDetail, required bool checked}) async {
     final user = _userController.currentUser;
     if (user == null) throw ArgumentError('No current user');
@@ -158,9 +213,11 @@ class QuestController extends ChangeNotifier {
     try {
       final updated = await _questService.checkDetailForUser(user, idQuestUserDetail, checked, token: _userController.authToken);
 
-      // Force a full reload from backend to ensure we get correct dateExpiration
-      // (especially for weekdays quests where backend calculates next valid day)
-      await loadQuests();
+      final changed = _upsertQuests(updated);
+      if (changed && kDebugMode) {
+        debugPrint('✅ [QuestController.checkQuestDetail] Updated local quests without reload');
+      }
+      if (changed) notifyListeners();
 
       return updated;
     } catch (e) {
@@ -171,6 +228,7 @@ class QuestController extends ChangeNotifier {
 
   /// Submit parameter values for a quest after local validation.
   /// Returns the list of quests returned by the backend (usually updated quest(s)).
+  /// NO reloads from backend - HomeScreen will refresh after all popups complete.
   Future<List<dynamic>> submitParamsForQuest(dynamic quest, List<String> inputValues) async {
     final user = _userController.currentUser;
     if (user == null) throw ArgumentError('No current user');
@@ -238,10 +296,12 @@ class QuestController extends ChangeNotifier {
     try {
       final submitted = await _questService.submitParamsForUser(user, idQuest, valuesForBackend, token: _userController.authToken);
 
-      // Force a full reload from backend to ensure we get correct dateExpiration
-      // (especially for weekdays quests where backend calculates next valid day)
-      await loadQuests();
+      final changedBySubmit = _upsertQuests(submitted);
+      if (changedBySubmit && kDebugMode) {
+        debugPrint('✅ [QuestController.submitParamsForQuest] Updated local quests without reload');
+      }
 
+      if (changedBySubmit) notifyListeners();
       return submitted;
     } catch (e) {
       if (kDebugMode) debugPrint('❌ [QuestController.submitParamsForQuest] error: $e');

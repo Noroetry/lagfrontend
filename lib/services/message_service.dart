@@ -27,23 +27,12 @@ class MessageService implements IMessageService {
 
     try {
       final requestBody = jsonEncode({'userId': userId});
-      if (kDebugMode) {
-        debugPrint('➡️ [MessageService.loadMessages] POST $uri');
-        debugPrint('➡️ [MessageService.loadMessages] headers: $headers');
-        debugPrint('➡️ [MessageService.loadMessages] body: $requestBody');
-      }
 
       final response = await _client.post(uri, headers: headers, body: requestBody);
-
-      if (kDebugMode) {
-        debugPrint('🔍 [MessageService.loadMessages] HTTP ${response.statusCode}');
-        debugPrint('🔍 [MessageService.loadMessages] raw body: ${response.body}');
-      }
 
       if (response.statusCode == 200) {
         try {
           final decoded = jsonDecode(response.body);
-          if (kDebugMode) debugPrint('🔍 [MessageService.loadMessages] decoded JSON: $decoded');
 
           // Expecting { messages: [...] }
           if (decoded is Map<String, dynamic> && decoded['messages'] is List) {
@@ -83,23 +72,12 @@ class MessageService implements IMessageService {
 
     try {
       final requestBody = jsonEncode({'userId': userId, 'messageUserId': messageUserId});
-      if (kDebugMode) {
-        debugPrint('➡️ [MessageService.markAsRead] POST $uri');
-        debugPrint('➡️ [MessageService.markAsRead] headers: $headers');
-        debugPrint('➡️ [MessageService.markAsRead] body: $requestBody');
-      }
 
       final response = await _client.post(uri, headers: headers, body: requestBody);
-
-      if (kDebugMode) {
-        debugPrint('🔍 [MessageService.markAsRead] HTTP ${response.statusCode}');
-        debugPrint('🔍 [MessageService.markAsRead] raw body: ${response.body}');
-      }
 
       if (response.statusCode == 200) {
         try {
           final decoded = jsonDecode(response.body);
-          if (kDebugMode) debugPrint('🔍 [MessageService.markAsRead] decoded JSON: $decoded');
           
           return decoded as Map<String, dynamic>;
         } catch (e) {

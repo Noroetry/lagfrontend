@@ -8,7 +8,7 @@ class Message {
   final bool isRead;
   final String createdAt;
 
-  Message({
+  const Message({
     required this.id,
     required this.messageId,
     required this.title,
@@ -20,14 +20,14 @@ class Message {
   });
 
   factory Message.fromJson(Map<String, dynamic> json) => Message(
-        id: json['id'] as int,
-        messageId: json['messageId'] as int,
+        id: _parseInt(json['id']),
+        messageId: _parseInt(json['messageId'] ?? json['idMessage'] ?? json['message_id']),
         title: json['title']?.toString() ?? '',
         description: json['description']?.toString() ?? '',
         type: json['type']?.toString() ?? 'info',
-        dateRead: json['dateRead']?.toString(),
-        isRead: json['isRead'] == true,
-        createdAt: json['createdAt']?.toString() ?? '',
+        dateRead: json['dateRead']?.toString() ?? json['fechaLeido']?.toString(),
+        isRead: _parseBool(json['isRead'] ?? json['read'] ?? json['leido'] ?? json['dateRead']),
+        createdAt: json['createdAt']?.toString() ?? json['fechaCreado']?.toString() ?? '',
       );
 
   Map<String, dynamic> toJson() => {
@@ -40,4 +40,23 @@ class Message {
         'isRead': isRead,
         'createdAt': createdAt,
       };
+
+  static int _parseInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) {
+      final parsed = int.tryParse(value);
+      if (parsed != null) return parsed;
+    }
+    return 0;
+  }
+
+  static bool _parseBool(dynamic value) {
+    if (value == null) return false;
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    final normalized = value.toString().trim().toLowerCase();
+    if (normalized.isEmpty) return false;
+    return normalized == 'true' || normalized == '1' || normalized == 'yes' || normalized == 'y';
+  }
 }

@@ -28,23 +28,12 @@ class QuestService {
 
     try {
       final requestBody = jsonEncode({'userId': user.id});
-      if (kDebugMode) {
-        debugPrint('➡️ [QuestService.fetchQuestsForUser] POST $uri');
-        debugPrint('➡️ [QuestService.fetchQuestsForUser] headers: $headers');
-        debugPrint('➡️ [QuestService.fetchQuestsForUser] body: $requestBody');
-      }
 
       final response = await _client.post(uri, headers: headers, body: requestBody);
-
-      if (kDebugMode) {
-        debugPrint('🔍 [QuestService.fetchQuestsForUser] HTTP ${response.statusCode}');
-        debugPrint('🔍 [QuestService.fetchQuestsForUser] raw body: ${response.body}');
-      }
 
       if (response.statusCode == 200) {
         try {
           final decoded = jsonDecode(response.body);
-          if (kDebugMode) debugPrint('🔍 [QuestService.fetchQuestsForUser] decoded JSON: $decoded');
 
           // Expecting an object like { questsRewarded, quests, assigned, activeQuests }
           // For now return the raw list (maps) so the UI can iterate freely.
@@ -94,21 +83,11 @@ class QuestService {
   if (questUserId != null) body['idQuest'] = questUserId;
 
     try {
-      if (kDebugMode) {
-        debugPrint('➡️ [QuestService.activateQuestForUser] POST $uri');
-        debugPrint('➡️ [QuestService.activateQuestForUser] headers: $headers');
-        debugPrint('➡️ [QuestService.activateQuestForUser] body: $body');
-      }
 
       final response = await _client.post(uri, headers: headers, body: jsonEncode(body));
-      if (kDebugMode) {
-        debugPrint('🔍 [QuestService.activateQuestForUser] HTTP ${response.statusCode}');
-        debugPrint('🔍 [QuestService.activateQuestForUser] raw body: ${response.body}');
-      }
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-        if (kDebugMode) debugPrint('🔍 [QuestService.activateQuestForUser] decoded JSON: $decoded');
 
         // The backend now returns a consistent `quests` array. Prefer that shape.
         if (decoded is Map<String, dynamic> && decoded['quests'] is List) {
@@ -140,21 +119,12 @@ class QuestService {
     final body = <String, dynamic>{'userId': user.id, 'idQuest': idQuest, 'values': values};
 
     try {
-      if (kDebugMode) {
-        debugPrint('➡️ [QuestService.submitParamsForUser] POST $uri');
-        debugPrint('➡️ [QuestService.submitParamsForUser] headers: $headers');
-        debugPrint('➡️ [QuestService.submitParamsForUser] body: $body');
-      }
 
       final response = await _client.post(uri, headers: headers, body: jsonEncode(body));
-      if (kDebugMode) {
-        debugPrint('🔍 [QuestService.submitParamsForUser] HTTP ${response.statusCode}');
-        debugPrint('🔍 [QuestService.submitParamsForUser] raw body: ${response.body}');
-      }
+
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-        if (kDebugMode) debugPrint('🔍 [QuestService.submitParamsForUser] decoded JSON: $decoded');
 
         // Expect the backend to return a `quests` array consistently.
         if (decoded is Map<String, dynamic> && decoded['quests'] is List) {
@@ -188,21 +158,11 @@ class QuestService {
     final body = <String, dynamic>{'userId': user.id, 'idQuestUserDetail': idQuestUserDetail, 'checked': checked};
 
     try {
-      if (kDebugMode) {
-        debugPrint('➡️ [QuestService.checkDetailForUser] POST $uri');
-        debugPrint('➡️ [QuestService.checkDetailForUser] headers: $headers');
-        debugPrint('➡️ [QuestService.checkDetailForUser] body: $body');
-      }
 
       final response = await _client.post(uri, headers: headers, body: jsonEncode(body));
-      if (kDebugMode) {
-        debugPrint('🔍 [QuestService.checkDetailForUser] HTTP ${response.statusCode}');
-        debugPrint('🔍 [QuestService.checkDetailForUser] raw body: ${response.body}');
-      }
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-        if (kDebugMode) debugPrint('🔍 [QuestService.checkDetailForUser] decoded JSON: $decoded');
 
         if (decoded is Map<String, dynamic> && decoded['quests'] is List) {
           return List<dynamic>.from(decoded['quests']);

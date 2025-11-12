@@ -4,12 +4,11 @@ import 'package:lagfrontend/models/message_model.dart';
 import 'package:lagfrontend/theme/app_theme.dart';
 
 /// Shows a detailed message popup when tapping a message.
-/// Displays the message title and description with an "Aceptar" button.
+/// Displays the message description with an "Aceptar" button.
 Future<void> showMessageDetailPopup(
   BuildContext context,
-  Message message, {
-  VoidCallback? onAccept,
-}) async {
+  Message message,
+) async {
   if (!context.mounted) return;
 
   await showDialog<void>(
@@ -21,22 +20,6 @@ Future<void> showMessageDetailPopup(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(height: 20),
-            RichText(
-              textAlign: TextAlign.center,
-              text: TextSpan(
-                children: [
-                  TextSpan(
-                    text: '[ ${message.title} ]',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                        ),
-                  ),
-                ],
-              ),
-            ),
             const SizedBox(height: 20),
             Text(
               message.description,
@@ -58,7 +41,6 @@ Future<void> showMessageDetailPopup(
             label: 'Aceptar',
             onPressed: () {
               Navigator.of(ctx).pop();
-              onAccept?.call();
             },
           ),
         ],

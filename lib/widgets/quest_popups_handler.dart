@@ -13,7 +13,7 @@ class QuestPopupsHandler extends StatefulWidget {
 }
 
 class _QuestPopupsHandlerState extends State<QuestPopupsHandler> {
-  final Set<dynamic> _shownQuestIds = {}; // track shown quests to avoid repeats
+  final Set<String> _shownQuestIds = <String>{}; // track shown quests to avoid repeats
   bool _isShowing = false;
 
   @override
@@ -50,10 +50,10 @@ class _QuestPopupsHandlerState extends State<QuestPopupsHandler> {
           }
         }
 
-        dynamic idOf(dynamic q) {
+        String? idOf(dynamic q) {
           try {
-            if (q is Map && q['idQuestUser'] != null) return q['idQuestUser'];
-            if (q is Map && q['id'] != null) return q['id'];
+            if (q is Map && q['idQuestUser'] != null) return q['idQuestUser'].toString();
+            if (q is Map && q['id'] != null) return q['id'].toString();
             return null;
           } catch (_) {
             return null;
@@ -104,11 +104,13 @@ class _QuestPopupsHandlerState extends State<QuestPopupsHandler> {
     if (!mounted) return;
     if (quest == null) return;
 
-    final id = (quest is Map && quest['idQuestUser'] != null)
-        ? quest['idQuestUser']
-        : (quest is Map && quest['id'] != null ? quest['id'] : null);
-    if (id == null) return;
-    if (_shownQuestIds.contains(id)) return;
+  final rawId = (quest is Map && quest['idQuestUser'] != null)
+    ? quest['idQuestUser']
+    : (quest is Map && quest['id'] != null ? quest['id'] : null);
+  if (rawId == null) return;
+  final idKey = rawId.toString();
+  if (idKey.isEmpty) return;
+  if (_shownQuestIds.contains(idKey)) return;
 
     final state = quest is Map && quest['state'] != null ? quest['state'].toString() : null;
     final header = quest is Map ? (quest['header'] ?? {}) : {};
@@ -119,12 +121,12 @@ class _QuestPopupsHandlerState extends State<QuestPopupsHandler> {
       // Quests en estado N: mostrar notificación y al aceptar llamar a activate
       final accepted = await _showNotificationPopup(quest);
       if (!accepted) {
-        _shownQuestIds.add(id);
+        _shownQuestIds.add(idKey);
         return;
       }
 
       try {
-        final activated = await qc.activateQuest(id);
+        final activated = await qc.activateQuest(rawId);
         if (!mounted) return;
         if (activated.isNotEmpty) {
           // If the backend returned additional quest(s), process them
@@ -135,32 +137,25 @@ class _QuestPopupsHandlerState extends State<QuestPopupsHandler> {
       } catch (e) {
         debugPrint('❌ [_processQuest activate] error: $e');
       } finally {
-        _shownQuestIds.add(id);
+        _shownQuestIds.add(idKey);
       }
     } else if (state == 'P') {
       // Quests en estado P: primero mostrar notificación, luego formulario,
       // y solo después de submit-params exitoso llamar a activate
       final accepted = await _showNotificationPopup(quest);
       if (!accepted) {
-        _shownQuestIds.add(id);
+        _shownQuestIds.add(idKey);
         return;
       }
 
       try {
         // Mostrar el formulario para capturar parámetros
-        final submitted = await _showFormPopup(id, title, quest);
+        final submitted = await _showFormPopup(rawId, title, quest);
 
         if (submitted != null && submitted.isNotEmpty) {
-          // submit-params fue exitoso, ahora llamar a activate
-          try {
-            final activated = await qc.activateQuest(id);
+          for (final next in submitted) {
             if (!mounted) return;
-            if (activated.isNotEmpty) {
-              final info = activated.first;
-              await _processQuest(info);
-            }
-          } catch (e) {
-            debugPrint('❌ [_processQuest activate after submit] error: $e');
+            await _processQuest(next);
           }
         }
       } catch (e) {
@@ -168,7 +163,7 @@ class _QuestPopupsHandlerState extends State<QuestPopupsHandler> {
       } finally {
         // Mark this quest as shown regardless to avoid re-showing the same
         // form repeatedly on subsequent cycles.
-        _shownQuestIds.add(id);
+        _shownQuestIds.add(idKey);
       }
     }
   }

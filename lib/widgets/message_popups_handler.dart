@@ -64,19 +64,16 @@ class _MessagePopupsHandlerState extends State<MessagePopupsHandler> {
 
     final mc = Provider.of<MessageController>(context, listen: false);
 
-    // Show the message popup
-    await showMessageDetailPopup(
-      context,
-      message,
-      onAccept: () async {
-        // Mark as read when user accepts
-        try {
-          await mc.markAsRead(messageId);
-        } catch (e) {
-          debugPrint('❌ [MessagePopupsHandler] error marking message as read: $e');
-        }
-      },
-    );
+    // Show the message popup and WAIT for it to close
+    await showMessageDetailPopup(context, message);
+
+    // AFTER the popup is closed, mark as read
+    if (!mounted) return;
+    try {
+      await mc.markAsRead(messageId);
+    } catch (e) {
+      debugPrint('❌ [MessagePopupsHandler] error marking message as read: $e');
+    }
 
     // Mark as shown regardless of whether user read it or dismissed it
     _shownMessageIds.add(messageId);
