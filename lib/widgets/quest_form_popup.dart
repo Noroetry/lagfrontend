@@ -162,6 +162,41 @@ Future<List<dynamic>?> showQuestFormPopup(BuildContext context, dynamic id, Stri
                               ],
                             ),
                           ),
+                          // Centered welcomeMessage and description if present
+                          Builder(builder: (ctxExtra) {
+                            String welcome = '';
+                            String description = '';
+                            try {
+                              final wm = header['welcomeMessage'] ?? header['welcome_message'] ?? header['welcome'];
+                              if (wm != null) welcome = wm.toString();
+                            } catch (_) {}
+                            try {
+                              final desc = header['description'] ?? header['descripcion'];
+                              if (desc != null) description = desc.toString();
+                            } catch (_) {}
+
+                            final widgets = <Widget>[];
+                            if (welcome.isNotEmpty) {
+                              widgets.add(const SizedBox(height: 10));
+                              widgets.add(Text(
+                                '“$welcome”',
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      fontStyle: FontStyle.italic,
+                                      color: AppColors.textSecondary,
+                                    ),
+                              ));
+                            }
+                            if (description.isNotEmpty) {
+                              widgets.add(const SizedBox(height: 10));
+                              widgets.add(Text(
+                                description,
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ));
+                            }
+                            return Column(children: widgets);
+                          }),
                           const SizedBox(height: 12),
                           Form(
                             key: formKey,

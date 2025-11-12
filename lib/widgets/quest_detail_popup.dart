@@ -52,9 +52,13 @@ Future<void> showQuestDetailPopup(BuildContext context, dynamic quest) async {
   // Capture navigator state before async ops
   final rootNav = Navigator.of(context, rootNavigator: true);
 
+  // Track whether the dialog is still open to avoid accidental double-pop
+  bool dialogOpen = true;
+
   await showDialog<void>(
     context: context,
-    barrierDismissible: false,
+    // For detail popup: tapping outside should behave like pressing "Aceptar"
+    barrierDismissible: true,
     builder: (ctx) {
       // Prepare mutable state captured by the StatefulBuilder below.
       final Map<dynamic, bool> checkedMap = {};
@@ -145,11 +149,27 @@ Future<void> showQuestDetailPopup(BuildContext context, dynamic quest) async {
         renderedMap[key] = rendered;
       }
 
-      return PopupForm(
-        icon: const Icon(Icons.menu_book),
-        title: 'MISIÓN',
-        actions: [PopupActionButton(label: 'Aceptar', onPressed: () => Navigator.of(ctx).pop())],
-        child: StatefulBuilder(builder: (ctxSb, setStateSb) {
+      return PopScope(
+        canPop: true,
+        onPopInvokedWithResult: (didPop, result) {
+          // When user dismisses by tapping outside or back, treat as Accept
+          if (didPop) {
+            dialogOpen = false;
+          }
+        },
+        child: PopupForm(
+          icon: const Icon(Icons.menu_book),
+          title: 'MISIÓN',
+          actions: [
+            PopupActionButton(
+              label: 'Aceptar',
+              onPressed: () {
+                dialogOpen = false;
+                Navigator.of(ctx).pop();
+              },
+            )
+          ],
+          child: StatefulBuilder(builder: (ctxSb, setStateSb) {
           return Material(
             color: Colors.transparent,
             child: SingleChildScrollView(
@@ -161,10 +181,10 @@ Future<void> showQuestDetailPopup(BuildContext context, dynamic quest) async {
                   const SizedBox(height: 8),
                   if (state == 'C')
                     Text('Completada', style: TextStyle(color: Colors.green[400], fontWeight: FontWeight.bold))
-                  else if (state == 'L')
+                  else if (state == 'L' && description.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                      child: Text(description, style: Theme.of(context).textTheme.bodyMedium),
+                      child: Text(description, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyMedium),
                     ),
                   const SizedBox(height: 12),
 
@@ -230,8 +250,10 @@ Future<void> showQuestDetailPopup(BuildContext context, dynamic quest) async {
                                             final newState = updatedQuest is Map && updatedQuest['state'] != null ? updatedQuest['state'].toString() : null;
                                             if (newState == 'C') {
                                               try {
-                                                rootNav.pop();
-                                                return;
+                                                if (dialogOpen) {
+                                                  rootNav.pop();
+                                                  return;
+                                                }
                                               } catch (_) {}
                                             }
                                           }
@@ -279,6 +301,7 @@ Future<void> showQuestDetailPopup(BuildContext context, dynamic quest) async {
             ),
           );
         }),
+        ),
       );
     },
   );

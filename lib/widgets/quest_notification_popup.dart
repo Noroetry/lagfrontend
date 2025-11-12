@@ -75,7 +75,7 @@ Future<bool> showQuestNotificationPopup(BuildContext context, dynamic quest) asy
         if (welcome.isNotEmpty) ...[
           const SizedBox(height: 20),
           Text(
-            '“$welcome”',
+            '"$welcome"',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   fontStyle: FontStyle.italic,
