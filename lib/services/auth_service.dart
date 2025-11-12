@@ -133,7 +133,7 @@ class AuthService implements IAuthService {
   Future<void> ping() async {
     try {
       final pingUrl = AppConfig.pingUrl;
-      final response = await _client.get(Uri.parse(pingUrl)).timeout(const Duration(seconds: 3));
+      final response = await _client.get(Uri.parse(pingUrl)).timeout(const Duration(seconds: 7));
       if (response.statusCode == 200) return;
       throw ApiException('Ping failed: ${response.statusCode}');
     } catch (e) {

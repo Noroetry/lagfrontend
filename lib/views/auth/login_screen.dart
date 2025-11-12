@@ -30,7 +30,9 @@ class _LoginScreenState extends State<LoginScreen> {
     await authController.login(_usernameOrEmailController.text.trim(), _passwordController.text);
     if (!mounted) return;
     if (authController.isAuthenticated) {
-      Navigator.of(context).pushReplacementNamed('/home');
+      // No navegamos manualmente - AuthGate detectará el cambio automáticamente
+      // Solo hacemos pop para volver y que AuthGate tome control
+      Navigator.of(context).pop();
     }
   }
 

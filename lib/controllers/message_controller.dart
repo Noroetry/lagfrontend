@@ -42,7 +42,9 @@ class MessageController extends ChangeNotifier {
     _isLoading = true;
     _error = null;
     if (kDebugMode) {
-      debugPrint('📬 [MessageController.loadMessages] starting for userId=${user.id} tokenPresent=${_userController.authToken != null}');
+      final timestamp = DateTime.now().toString().substring(11, 23);
+      debugPrint('📬 [$timestamp] [MessageController.loadMessages] starting for userId=${user.id} tokenPresent=${_userController.authToken != null}');
+      debugPrint('📬 [$timestamp] [MessageController.loadMessages] STACKTRACE: ${StackTrace.current.toString().split('\n').take(5).join('\n')}');
     }
     notifyListeners();
 
@@ -52,8 +54,10 @@ class MessageController extends ChangeNotifier {
       // Pass auth token from UserController if available so server can authorize the request
       _messages = await _messageService.loadMessages(userId, token: _userController.authToken);
       if (kDebugMode) {
-        debugPrint('✅ [MessageController.loadMessages] loaded ${_messages.length} messages');
-        debugPrint('📊 [MessageController.loadMessages] unread: $unreadCount');
+        final timestamp = DateTime.now().toString().substring(11, 23);
+        debugPrint('✅ [$timestamp] [MessageController.loadMessages] loaded ${_messages.length} messages');
+        debugPrint('📊 [$timestamp] [MessageController.loadMessages] unread: $unreadCount');
+        debugPrint('📊 [$timestamp] [MessageController.loadMessages] messages from server: ${_messages.map((m) => 'id=${m.id}, isRead=${m.isRead}').join(', ')}');
       }
     } catch (e) {
       _error = e.toString();

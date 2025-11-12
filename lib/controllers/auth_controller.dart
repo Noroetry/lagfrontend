@@ -51,6 +51,28 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _setConnectionError(String? message) {
+    if (_connectionErrorMessage == message) return;
+    _connectionErrorMessage = message;
+    notifyListeners();
+  }
+
+  Future<bool> verifyConnection({bool setErrorMessage = true}) async {
+    try {
+      await _authService.ping();
+      if (_connectionErrorMessage != null) {
+        _setConnectionError(null);
+      }
+      return true;
+    } catch (e) {
+      if (kDebugMode) debugPrint('⚠️ [Auth Connection] Ping failed: $e');
+      if (setErrorMessage) {
+        _setConnectionError('Error de conexión: $e');
+      }
+      return false;
+    }
+  }
+
   Future<void> checkAuthenticationStatus() async {
     _setLoading(true);
     try {
@@ -67,15 +89,9 @@ class AuthController extends ChangeNotifier {
         return;
       }
 
-      try {
-        await _authService.ping();
-        if (_connectionErrorMessage != null) {
-          _connectionErrorMessage = null;
-          notifyListeners();
-        }
-      } catch (e) {
-        _connectionErrorMessage = 'Error de conexión: $e';
-        if (kDebugMode) debugPrint('⚠️ [Auth Check] Ping failed: $e');
+      final connected = await verifyConnection();
+      if (!connected) {
+        if (kDebugMode) debugPrint('⚠️ [Auth Check] Ping failed during auth check');
         return;
       }
 
@@ -265,8 +281,7 @@ class AuthController extends ChangeNotifier {
   /// Reintentar comprobación de conexión y, si procede, volver a chequear autenticación.
   Future<void> retryConnection() async {
     // Clear previous connection error and attempt to re-run the auth check which includes ping.
-    _connectionErrorMessage = null;
-    notifyListeners();
+    _setConnectionError(null);
     await checkAuthenticationStatus();
   }
 

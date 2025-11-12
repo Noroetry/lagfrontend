@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:lagfrontend/controllers/auth_controller.dart';
 import 'package:lagfrontend/controllers/message_controller.dart';
 import 'package:lagfrontend/controllers/quest_controller.dart';
 import 'package:lagfrontend/widgets/coordinated_popups_handler.dart';
@@ -16,84 +17,167 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  bool _isRefreshing = false;
   bool _initialLoadDone = false;
   bool _initialLoadInProgress = false;
+  bool _popupsProcessed = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureInitialDataLoaded());
+    debugPrint('🔵 [HomeScreen.initState] Called');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      debugPrint('🔵 [HomeScreen.initState] PostFrameCallback executing');
+      _initializeHomeScreen();
+    });
   }
 
-  Future<void> _ensureInitialDataLoaded() async {
-    if (!mounted || _initialLoadDone || _initialLoadInProgress) return;
+  /// Inicializa la pantalla: carga datos y luego procesa popups
+  Future<void> _initializeHomeScreen() async {
+    final timestamp = DateTime.now().toString().substring(11, 23);
+    debugPrint('🔵 [$timestamp] [HomeScreen._initializeHomeScreen] Called (mounted=$mounted, done=$_initialLoadDone, inProgress=$_initialLoadInProgress)');
+    
+    if (!mounted || _initialLoadDone || _initialLoadInProgress) {
+      debugPrint('⚠️ [$timestamp] [HomeScreen._initializeHomeScreen] Skipped (mounted=$mounted, done=$_initialLoadDone, inProgress=$_initialLoadInProgress)');
+      return;
+    }
 
     _initialLoadInProgress = true;
-    final timestamp = DateTime.now().toString().substring(11, 23);
-    debugPrint('🚀 [$timestamp] [HomeScreen] Starting initial data bootstrap...');
+    debugPrint('🚀 [$timestamp] [HomeScreen] Iniciando carga inicial de datos...');
 
-    var success = false;
+    final auth = Provider.of<AuthController>(context, listen: false);
+    final mc = Provider.of<MessageController>(context, listen: false);
+    final qc = Provider.of<QuestController>(context, listen: false);
+
     try {
-      final mc = Provider.of<MessageController>(context, listen: false);
-      final qc = Provider.of<QuestController>(context, listen: false);
+      // 1. Verificar conexión
+      final connected = await auth.verifyConnection();
+      if (!connected) {
+        debugPrint('⚠️ [$timestamp] [HomeScreen] Sin conexión al backend');
+        if (mounted) {
+          setState(() {
+            _initialLoadInProgress = false;
+          });
+        }
+        return;
+      }
 
+      // 2. Cargar datos en paralelo
       await Future.wait([
         mc.loadMessages(),
         qc.loadQuests(),
       ]);
 
-      debugPrint('✅ [$timestamp] [HomeScreen] Initial data bootstrap completed');
-      success = true;
+      debugPrint('✅ [$timestamp] [HomeScreen] Datos cargados correctamente');
+
+      if (mounted) {
+        setState(() {
+          _initialLoadDone = true;
+          _initialLoadInProgress = false;
+        });
+
+        // 3. Procesar popups después de cargar datos
+        await _processPopups();
+      }
     } catch (e) {
-      debugPrint('❌ [$timestamp] [HomeScreen] Initial data bootstrap failed: $e');
-    } finally {
+      debugPrint('❌ [$timestamp] [HomeScreen] Error cargando datos: $e');
       if (mounted) {
         setState(() {
           _initialLoadInProgress = false;
-          _initialLoadDone = success;
         });
-
-        if (!success) {
-          Future.delayed(const Duration(seconds: 2), () {
-            if (!mounted) return;
-            if (!_initialLoadInProgress && !_initialLoadDone) {
-              _ensureInitialDataLoaded();
-            }
-          });
-        }
+        
+        // Reintentar después de 2 segundos
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted && !_initialLoadInProgress && !_initialLoadDone) {
+            _initializeHomeScreen();
+          }
+        });
       }
     }
   }
 
-  /// Called when CoordinatedPopupsHandler finishes processing all popups
-  /// Refreshes data from backend and triggers popup processing again if needed
-  Future<void> _onPopupsComplete() async {
-    if (!mounted || _isRefreshing || _initialLoadInProgress) return;
-    
-    setState(() => _isRefreshing = true);
-    
+  /// Procesa todos los popups de mensajes y quests secuencialmente
+  Future<void> _processPopups() async {
     final timestamp = DateTime.now().toString().substring(11, 23);
-    debugPrint('🔄 [$timestamp] [HomeScreen] Refreshing data after popups completed...');
+    debugPrint('🔵 [$timestamp] [HomeScreen._processPopups] Called (mounted=$mounted, popupsProcessed=$_popupsProcessed)');
     
+    if (!mounted || _popupsProcessed) {
+      debugPrint('⚠️ [$timestamp] [HomeScreen._processPopups] Skipped (mounted=$mounted, popupsProcessed=$_popupsProcessed)');
+      return;
+    }
+
+    final mc = Provider.of<MessageController>(context, listen: false);
+    final qc = Provider.of<QuestController>(context, listen: false);
+
+    debugPrint('🔄 [$timestamp] [HomeScreen] Iniciando procesamiento de popups...');
+
     try {
-      final mc = Provider.of<MessageController>(context, listen: false);
-      final qc = Provider.of<QuestController>(context, listen: false);
-      
-      // Refresh messages and quests from backend
+      // Procesar popups de forma secuencial
+      final processedAny = await CoordinatedPopupsHandler.processAllPopups(
+        context,
+        mc,
+        qc,
+      );
+
+      if (!mounted) return;
+
+      if (processedAny) {
+        debugPrint('✅ [HomeScreen] Popups procesados, recargando datos...');
+        
+        // Recargar datos después de procesar popups
+        await Future.wait([
+          mc.loadMessages(),
+          qc.loadQuests(),
+        ]);
+
+        if (mounted) {
+          setState(() {
+            _popupsProcessed = true;
+          });
+          debugPrint('✅ [HomeScreen] Datos recargados después de popups');
+        }
+      } else {
+        debugPrint('ℹ️ [HomeScreen] No había popups pendientes');
+        if (mounted) {
+          setState(() {
+            _popupsProcessed = true;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ [HomeScreen] Error procesando popups: $e');
+    }
+  }
+
+  /// Refresca los datos manualmente (ej. al hacer pull-to-refresh)
+  Future<void> _refreshData() async {
+    if (!mounted) return;
+
+    final auth = Provider.of<AuthController>(context, listen: false);
+    final mc = Provider.of<MessageController>(context, listen: false);
+    final qc = Provider.of<QuestController>(context, listen: false);
+
+    debugPrint('🔄 [HomeScreen] Refrescando datos...');
+
+    try {
+      final connected = await auth.verifyConnection();
+      if (!connected) {
+        debugPrint('⚠️ [HomeScreen] Sin conexión al backend');
+        return;
+      }
+
       await Future.wait([
         mc.loadMessages(),
         qc.loadQuests(),
       ]);
-      
-      debugPrint('✅ [$timestamp] [HomeScreen] Refresh completed');
-      // CoordinatedPopupsHandler will detect new data and process if needed
-    } catch (e) {
-      debugPrint('❌ [$timestamp] [HomeScreen] Error refreshing: $e');
-    } finally {
+
+      debugPrint('✅ [HomeScreen] Datos refrescados');
+
       if (mounted) {
-        setState(() => _isRefreshing = false);
+        // Procesar popups después del refresco
+        await _processPopups();
       }
+    } catch (e) {
+      debugPrint('❌ [HomeScreen] Error refrescando datos: $e');
     }
   }
 
@@ -101,65 +185,65 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 0.0, vertical: 12.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Top action bar with icons
-              const HomeAppBar(),
+        child: RefreshIndicator(
+          onRefresh: _refreshData,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 0.0, vertical: 12.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Top action bar with icons
+                const HomeAppBar(),
 
-              const SizedBox(height: 12),
+                const SizedBox(height: 12),
 
-              // User info panel
-              const UserInfoPanel(),
+                // User info panel
+                const UserInfoPanel(),
 
-              const SizedBox(height: 8),
+                const SizedBox(height: 8),
 
-              // Messages section title
-              const SizedBox(height: 6),
-              Center(
-                child: Text(
-                  'Mensajes pendientes',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    decoration: TextDecoration.underline,
+                // Messages section title
+                const SizedBox(height: 6),
+                Center(
+                  child: Text(
+                    'Mensajes pendientes',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      decoration: TextDecoration.underline,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 6),
+                const SizedBox(height: 6),
 
-              // Unread messages panel
-              const UnreadMessagesPanel(),
+                // Unread messages panel
+                const UnreadMessagesPanel(),
 
-              const SizedBox(height: 8),
+                const SizedBox(height: 8),
 
-              // Quests section title
-              const SizedBox(height: 6),
-              Center(
-                child: Text(
-                  'Misiones',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    decoration: TextDecoration.underline,
+                // Quests section title
+                const SizedBox(height: 6),
+                Center(
+                  child: Text(
+                    'Misiones',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      decoration: TextDecoration.underline,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 6),
+                const SizedBox(height: 6),
 
-              // Active quests panel
-              const ActiveQuestsPanel(),
-
-              // Coordinated handler that shows messages FIRST, then quests
-              // When all popups are done, triggers a refresh to check for new data
-              CoordinatedPopupsHandler(onComplete: _onPopupsComplete),
-            ],
+                // Active quests panel
+                const ActiveQuestsPanel(),
+              ],
+            ),
           ),
         ),
       ),

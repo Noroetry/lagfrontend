@@ -12,7 +12,6 @@ import 'package:lagfrontend/services/quest_service.dart';
 import 'package:lagfrontend/services/message_service.dart';
 import 'package:lagfrontend/services/user_service.dart';
 import 'package:lagfrontend/views/auth/auth_gate.dart'; 
-import 'package:lagfrontend/views/home/home_screen.dart'; 
 import 'package:lagfrontend/theme/app_theme.dart';
 
 
@@ -88,22 +87,22 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
+      // Skip initial resume - HomeScreen will handle initial data load
       if (!_hasHandledInitialResume) {
         _hasHandledInitialResume = true;
-        debugPrint('⏯️ [Main] Initial resume handled by HomeScreen bootstrap, skipping double load');
+        debugPrint('⏯️ [Main] Initial resume - skipping data load (HomeScreen will handle it)');
         return;
       }
 
+      // Only reload on subsequent resumes (when user returns to app)
       try {
         final auth = Provider.of<AuthController>(context, listen: false);
-        // Capture MessageController and QuestController synchronously so we don't use BuildContext across async gaps.
         final mc = Provider.of<MessageController>(context, listen: false);
         final qc = Provider.of<QuestController>(context, listen: false);
-        // Run the auth check and then ensure MessageController refreshes BEFORE QuestController.
-        // Use a microtask so we don't make this lifecycle callback async.
+        
         Future.microtask(() async {
           final timestamp = DateTime.now().toString().substring(11, 23);
-          debugPrint('🚀 [$timestamp] [Main] Starting initial data load...');
+          debugPrint('🔄 [$timestamp] [Main] App resumed - reloading data...');
           
           try {
             await auth.checkAuthenticationStatus();
@@ -113,7 +112,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           }
           
           try {
-            // Load messages FIRST
             debugPrint('📬 [$timestamp] [Main] Loading messages...');
             await mc.loadMessages();
             debugPrint('✅ [$timestamp] [Main] Messages loaded');
@@ -122,7 +120,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           }
           
           try {
-            // Then load quests
             debugPrint('⚔️ [$timestamp] [Main] Loading quests...');
             await qc.loadQuests();
             debugPrint('✅ [$timestamp] [Main] Quests loaded');
@@ -130,7 +127,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             debugPrint('❌ [$timestamp] [Main] Quests load failed: $e');
           }
           
-          debugPrint('🎉 [$timestamp] [Main] Initial data load complete - CoordinatedPopupsHandler will now process');
+          debugPrint('✅ [$timestamp] [Main] Data reload complete');
         });
       } catch (_) {
         // If providers are not ready or during tests, ignore.
@@ -145,9 +142,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       theme: AppTheme.dark(),
       debugShowCheckedModeBanner: false,
       home: const AuthGate(),
-      routes: {
-        '/home': (context) => const HomeScreen(),
-      },
+      // Removed routes - AuthGate handles navigation automatically
     );
   }
 }

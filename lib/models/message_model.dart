@@ -19,16 +19,24 @@ class Message {
     required this.createdAt,
   });
 
-  factory Message.fromJson(Map<String, dynamic> json) => Message(
-        id: _parseInt(json['id']),
-        messageId: _parseInt(json['messageId'] ?? json['idMessage'] ?? json['message_id']),
-        title: json['title']?.toString() ?? '',
-        description: json['description']?.toString() ?? '',
-        type: json['type']?.toString() ?? 'info',
-        dateRead: json['dateRead']?.toString() ?? json['fechaLeido']?.toString(),
-        isRead: _parseBool(json['isRead'] ?? json['read'] ?? json['leido'] ?? json['dateRead']),
-        createdAt: json['createdAt']?.toString() ?? json['fechaCreado']?.toString() ?? '',
-      );
+  factory Message.fromJson(Map<String, dynamic> json) {
+    final rawDateRead = _stringOrNull(json['dateRead']) ?? _stringOrNull(json['fechaLeido']);
+    final cleanedDateRead = _normalizeNullableString(rawDateRead);
+
+    final bool backendFlagsRead = _parseBool(json['isRead'] ?? json['read'] ?? json['leido']);
+    final bool hasReadTimestamp = cleanedDateRead != null;
+
+    return Message(
+      id: _parseInt(json['id'] ?? json['messageUserId'] ?? json['idMessageUser'] ?? json['message_user_id']),
+      messageId: _parseInt(json['messageId'] ?? json['idMessage'] ?? json['message_id']),
+      title: json['title']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      type: json['type']?.toString() ?? 'info',
+      dateRead: cleanedDateRead,
+      isRead: backendFlagsRead || hasReadTimestamp,
+      createdAt: _stringOrNull(json['createdAt']) ?? _stringOrNull(json['fechaCreado']) ?? '',
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -58,5 +66,19 @@ class Message {
     final normalized = value.toString().trim().toLowerCase();
     if (normalized.isEmpty) return false;
     return normalized == 'true' || normalized == '1' || normalized == 'yes' || normalized == 'y';
+  }
+
+  static String? _stringOrNull(dynamic value) {
+    if (value == null) return null;
+    if (value is String) return value;
+    return value.toString();
+  }
+
+  static String? _normalizeNullableString(String? value) {
+    if (value == null) return null;
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return null;
+    if (trimmed.toLowerCase() == 'null') return null;
+    return trimmed;
   }
 }

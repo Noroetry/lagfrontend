@@ -11,9 +11,10 @@ Future<void> showMessageDetailPopup(
 ) async {
   if (!context.mounted) return;
 
+  debugPrint('📨 [showMessageDetailPopup] Presenting message ${message.id}');
   await showDialog<void>(
     context: context,
-    barrierDismissible: true,
+    barrierDismissible: false,
     builder: (ctx) {
       final child = Material(
         color: Colors.transparent,
@@ -48,4 +49,5 @@ Future<void> showMessageDetailPopup(
       );
     },
   );
+  debugPrint('📨 [showMessageDetailPopup] Message ${message.id} dialog returned');
 }

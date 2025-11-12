@@ -10,6 +10,9 @@ import 'package:lagfrontend/theme/app_theme.dart';
 Future<List<dynamic>?> showQuestFormPopup(BuildContext context, dynamic id, String questTitle, dynamic quest) async {
   if (!Navigator.of(context).mounted) return null;
 
+  final questId = id?.toString() ?? 'unknown';
+  debugPrint('📝 [showQuestFormPopup] Presenting quest $questId form');
+
   final details = (quest is Map && quest['details'] is List) ? List.from(quest['details']) : <dynamic>[];
 
   bool needsParam(Object? v) {
@@ -218,6 +221,7 @@ Future<List<dynamic>?> showQuestFormPopup(BuildContext context, dynamic id, Stri
     ),
   );
 
+  debugPrint('📝 [showQuestFormPopup] Quest $questId form dialog returned (${result?.length ?? 0} items)');
   WidgetsBinding.instance.addPostFrameCallback((_) {
     for (final c in controllers) {
       try {

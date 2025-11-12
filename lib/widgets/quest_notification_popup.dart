@@ -7,6 +7,12 @@ import 'package:lagfrontend/theme/app_theme.dart';
 Future<bool> showQuestNotificationPopup(BuildContext context, dynamic quest) async {
   if (!Navigator.of(context).mounted) return false;
 
+  final questId = (quest is Map && (quest['idQuestUser'] ?? quest['id']) != null)
+      ? (quest['idQuestUser'] ?? quest['id']).toString()
+      : 'unknown';
+  final state = (quest is Map && quest['state'] != null) ? quest['state'].toString() : 'unknown';
+  debugPrint('⚔️ [showQuestNotificationPopup] Presenting quest $questId (state: $state)');
+
   // Determine title/header safely from the quest map
   Map<String, dynamic> header = {};
   String title = '—';
@@ -101,5 +107,6 @@ Future<bool> showQuestNotificationPopup(BuildContext context, dynamic quest) asy
     ),
   );
 
+  debugPrint('⚔️ [showQuestNotificationPopup] Quest $questId dialog returned -> ${accepted == true ? 'accepted' : 'rejected'}');
   return accepted == true;
 }

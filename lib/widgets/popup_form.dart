@@ -161,9 +161,12 @@ class _PopupActionButtonState extends State<PopupActionButton> {
 
   Future<void> _handleTap() async {
     setState(() => _pressed = true);
-    await Future.delayed(AppTheme.popupButtonPressDelay);
     try {
+      debugPrint('🔘 [PopupActionButton] "${widget.label}" tap -> executing callback');
+      // Execute the callback immediately so routes close synchronously and
+      // subsequent popups cannot overtake the pending dialog pop.
       widget.onPressed();
+      await Future.delayed(AppTheme.popupButtonPressDelay);
     } finally {
       // reset visual state after a short delay to allow navigation ripple to show
       if (mounted) setState(() => _pressed = false);
