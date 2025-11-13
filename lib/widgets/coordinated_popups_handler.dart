@@ -27,16 +27,16 @@ class CoordinatedPopupsHandler {
     
     var processedAny = false;
 
-    // 1. Procesar mensajes
-    processedAny |= await _processMessages(context, messageController);
-    if (!context.mounted) return processedAny;
-
-    // 2. Procesar quests con state 'N'
+    // 1. Procesar quests con state 'N' primero
     processedAny |= await _processQuestsByState(context, questController, 'N');
     if (!context.mounted) return processedAny;
 
-    // 3. Procesar quests con state 'P'
+    // 2. Procesar quests con state 'P'
     processedAny |= await _processQuestsByState(context, questController, 'P');
+    if (!context.mounted) return processedAny;
+
+    // 3. Procesar mensajes al final
+    processedAny |= await _processMessages(context, messageController);
 
     debugPrint('✅ [CoordinatedPopupsHandler] Procesamiento completado. Procesados: $processedAny');
     

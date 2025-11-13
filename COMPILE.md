@@ -1,1 +1,0 @@
-flutter build apk --release --dart-define=DEV_MODE=false
