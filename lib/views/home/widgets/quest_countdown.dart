@@ -3,17 +3,21 @@ import 'package:flutter/material.dart';
 
 /// Small widget that displays a live countdown to [dateExpirationRaw].
 ///
-/// - `dateExpirationRaw` and `dateReadRaw` can be either ISO-8601 strings or
-///   DateTime objects (or null). If `dateReadRaw` is provided we use it to
-///   compute the full duration so the progress bar shows fraction remaining.
+/// - `dateExpirationRaw` can be either ISO-8601 string or DateTime object.
+/// - `durationMinutes` is the total duration in minutes. If provided, the start
+///   time will be calculated as (dateExpiration - durationMinutes).
+/// - `dateReadRaw` (deprecated) can be provided as fallback if durationMinutes
+///   is not available.
 class QuestCountdown extends StatefulWidget {
   final dynamic dateExpirationRaw;
   final dynamic dateReadRaw;
+  final int? durationMinutes;
 
   const QuestCountdown({
     super.key,
     this.dateExpirationRaw,
     this.dateReadRaw,
+    this.durationMinutes,
   });
 
   @override
@@ -38,20 +42,30 @@ class _QuestCountdownState extends State<QuestCountdown> {
   DateTime? _parse(dynamic raw) {
     try {
       if (raw == null) return null;
-      if (raw is DateTime) return raw.toUtc();
-      if (raw is String) return DateTime.parse(raw).toUtc();
-      if (raw is int) return DateTime.fromMillisecondsSinceEpoch(raw).toUtc();
+      // Don't convert to UTC - Dart handles timezone automatically
+      // when comparing UTC dates with local DateTime.now()
+      if (raw is DateTime) return raw;
+      if (raw is String) return DateTime.parse(raw); // Detects 'Z' suffix automatically
+      if (raw is int) return DateTime.fromMillisecondsSinceEpoch(raw);
     } catch (_) {}
     return null;
   }
 
   void _parseDates() {
     _expiresAt = _parse(widget.dateExpirationRaw);
-    _startedAt = _parse(widget.dateReadRaw);
+    
+    // Priority 1: If durationMinutes is provided, calculate start time
+    if (widget.durationMinutes != null && _expiresAt != null) {
+      _startedAt = _expiresAt!.subtract(Duration(minutes: widget.durationMinutes!));
+    } 
+    // Priority 2: Fall back to dateReadRaw if available
+    else {
+      _startedAt = _parse(widget.dateReadRaw);
+    }
   }
 
   void _update() {
-    final now = DateTime.now().toUtc();
+    final now = DateTime.now(); // Local time - Dart handles timezone conversion automatically
     if (_expiresAt == null) {
       setState(() {
         _remaining = Duration.zero;
@@ -68,6 +82,8 @@ class _QuestCountdownState extends State<QuestCountdown> {
     final clamped = rem.isNegative ? Duration.zero : rem;
     double frac = 0.0;
     if (total != null && total.inMilliseconds > 0) {
+      // Calculate fraction of time REMAINING (not elapsed)
+      // So the bar shows green for time left and drains as time passes
       frac = clamped.inMilliseconds / total.inMilliseconds;
       if (frac < 0) frac = 0.0;
       if (frac > 1) frac = 1.0;

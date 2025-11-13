@@ -106,10 +106,38 @@ class ActiveQuestsPanel extends StatelessWidget {
                         child: SizedBox(
                           height: 40,
                           child: Center(
-                            child: QuestCountdown(
-                              dateExpirationRaw:
-                                  q is Map ? q['dateExpiration'] : null,
-                              dateReadRaw: q is Map ? q['dateRead'] : null,
+                            child: Builder(
+                              builder: (context) {
+                                // Try to find duration in multiple places
+                                int? durationMinutes;
+                                if (q is Map) {
+                                  // Check direct duration field
+                                  if (q['duration'] != null) {
+                                    durationMinutes = q['duration'] is int
+                                        ? q['duration'] as int
+                                        : int.tryParse(q['duration'].toString());
+                                  }
+                                  // Check in header
+                                  else if (q['header'] is Map && q['header']['duration'] != null) {
+                                    durationMinutes = q['header']['duration'] is int
+                                        ? q['header']['duration'] as int
+                                        : int.tryParse(q['header']['duration'].toString());
+                                  }
+                                  // Check in details
+                                  else if (q['details'] is Map && q['details']['duration'] != null) {
+                                    durationMinutes = q['details']['duration'] is int
+                                        ? q['details']['duration'] as int
+                                        : int.tryParse(q['details']['duration'].toString());
+                                  }
+                                }
+                                
+                                return QuestCountdown(
+                                  dateExpirationRaw:
+                                      q is Map ? q['dateExpiration'] : null,
+                                  durationMinutes: durationMinutes,
+                                  dateReadRaw: q is Map ? q['dateRead'] : null,
+                                );
+                              },
                             ),
                           ),
                         ),
