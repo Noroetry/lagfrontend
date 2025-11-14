@@ -19,7 +19,8 @@ class MessageController extends ChangeNotifier {
   }
 
   List<Message> get messages => _messages;
-  List<Message> get unreadMessages => _messages.where((m) => !m.isRead).toList();
+  List<Message> get unreadMessages =>
+      _messages.where((m) => !m.isRead).toList();
   bool get isLoading => _isLoading;
   String? get error => _error;
   int get unreadCount => unreadMessages.length;
@@ -38,13 +39,17 @@ class MessageController extends ChangeNotifier {
   Future<void> loadMessages() async {
     final user = _userController.currentUser;
     if (user == null) return;
-    
+
     _isLoading = true;
     _error = null;
     if (kDebugMode) {
       final timestamp = DateTime.now().toString().substring(11, 23);
-      debugPrint('📬 [$timestamp] [MessageController.loadMessages] starting for userId=${user.id} tokenPresent=${_userController.authToken != null}');
-      debugPrint('📬 [$timestamp] [MessageController.loadMessages] STACKTRACE: ${StackTrace.current.toString().split('\n').take(5).join('\n')}');
+      debugPrint(
+        '📬 [$timestamp] [MessageController.loadMessages] starting for userId=${user.id} tokenPresent=${_userController.authToken != null}',
+      );
+      debugPrint(
+        '📬 [$timestamp] [MessageController.loadMessages] STACKTRACE: ${StackTrace.current.toString().split('\n').take(5).join('\n')}',
+      );
     }
     notifyListeners();
 
@@ -52,16 +57,27 @@ class MessageController extends ChangeNotifier {
       // Parse user.id to int (it's stored as String but backend expects int)
       final userId = int.tryParse(user.id) ?? 0;
       // Pass auth token from UserController if available so server can authorize the request
-      _messages = await _messageService.loadMessages(userId, token: _userController.authToken);
+      _messages = await _messageService.loadMessages(
+        userId,
+        token: _userController.authToken,
+      );
       if (kDebugMode) {
         final timestamp = DateTime.now().toString().substring(11, 23);
-        debugPrint('✅ [$timestamp] [MessageController.loadMessages] loaded ${_messages.length} messages');
-        debugPrint('📊 [$timestamp] [MessageController.loadMessages] unread: $unreadCount');
-        debugPrint('📊 [$timestamp] [MessageController.loadMessages] messages from server: ${_messages.map((m) => 'id=${m.id}, isRead=${m.isRead}').join(', ')}');
+        debugPrint(
+          '✅ [$timestamp] [MessageController.loadMessages] loaded ${_messages.length} messages',
+        );
+        debugPrint(
+          '📊 [$timestamp] [MessageController.loadMessages] unread: $unreadCount',
+        );
+        debugPrint(
+          '📊 [$timestamp] [MessageController.loadMessages] messages from server: ${_messages.map((m) => 'id=${m.id}, isRead=${m.isRead}').join(', ')}',
+        );
       }
     } catch (e) {
       _error = e.toString();
-      if (kDebugMode) debugPrint('❌ [MessageController.loadMessages] error: $_error');
+      if (kDebugMode) {
+        debugPrint('❌ [MessageController.loadMessages] error: $_error');
+      }
       _messages = [];
     } finally {
       _isLoading = false;
@@ -74,17 +90,23 @@ class MessageController extends ChangeNotifier {
   Future<void> markAsRead(int messageUserId) async {
     final user = _userController.currentUser;
     if (user == null) return;
-    
+
     if (kDebugMode) {
-      debugPrint('📖 [MessageController.markAsRead] marking message $messageUserId as read for user ${user.id}');
+      debugPrint(
+        '📖 [MessageController.markAsRead] marking message $messageUserId as read for user ${user.id}',
+      );
     }
 
     try {
       // Parse user.id to int
       final userId = int.tryParse(user.id) ?? 0;
-      
+
       // Pass auth token from UserController if available so server can authorize the request
-      final response = await _messageService.markAsRead(userId, messageUserId, token: _userController.authToken);
+      final response = await _messageService.markAsRead(
+        userId,
+        messageUserId,
+        token: _userController.authToken,
+      );
       if (kDebugMode) {
         debugPrint('✅ [MessageController.markAsRead] response: $response');
       }
@@ -96,10 +118,11 @@ class MessageController extends ChangeNotifier {
         final message = _messages[index];
         _messages[index] = Message(
           id: message.id,
-          messageId: message.messageId,
           title: message.title,
           description: message.description,
+          questTitle: message.questTitle,
           type: message.type,
+          adjunts: message.adjunts,
           dateRead: DateTime.now().toIso8601String(),
           isRead: true,
           createdAt: message.createdAt,

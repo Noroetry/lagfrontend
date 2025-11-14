@@ -4,6 +4,7 @@ import 'package:lagfrontend/controllers/quest_controller.dart';
 import 'package:lagfrontend/widgets/message_detail_popup.dart';
 import 'package:lagfrontend/widgets/quest_form_popup.dart';
 import 'package:lagfrontend/widgets/quest_notification_popup.dart';
+import 'package:lagfrontend/utils/quest_helpers.dart';
 
 /// Procesa popups de mensajes y quests de forma secuencial.
 /// 
@@ -27,16 +28,16 @@ class CoordinatedPopupsHandler {
     
     var processedAny = false;
 
-    // 1. Procesar quests con state 'N' primero
+    // 1. Procesar mensajes primero
+    processedAny |= await _processMessages(context, messageController);
+    if (!context.mounted) return processedAny;
+
+    // 2. Procesar quests con state 'N'
     processedAny |= await _processQuestsByState(context, questController, 'N');
     if (!context.mounted) return processedAny;
 
-    // 2. Procesar quests con state 'P'
+    // 3. Procesar quests con state 'P'
     processedAny |= await _processQuestsByState(context, questController, 'P');
-    if (!context.mounted) return processedAny;
-
-    // 3. Procesar mensajes al final
-    processedAny |= await _processMessages(context, messageController);
 
     debugPrint('✅ [CoordinatedPopupsHandler] Procesamiento completado. Procesados: $processedAny');
     
@@ -104,7 +105,7 @@ class CoordinatedPopupsHandler {
       final questId = quest['idQuestUser'] ?? quest['id'];
       if (questId == null) continue;
       
-      final questTitle = _getQuestTitle(quest);
+      final questTitle = getQuestTitle(quest);
       debugPrint('⚔️ [CoordinatedPopupsHandler] Mostrando quest $questId (state: $targetState)');
       
       processed = true;
@@ -147,16 +148,5 @@ class CoordinatedPopupsHandler {
     }
 
     return processed;
-  }
-
-  /// Obtiene el título de una quest de forma segura
-  static String _getQuestTitle(Map<dynamic, dynamic> quest) {
-    try {
-      final header = quest['header'];
-      if (header is Map && header['title'] != null) {
-        return header['title'].toString();
-      }
-    } catch (_) {}
-    return 'Misión';
   }
 }

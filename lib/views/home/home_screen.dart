@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:lagfrontend/controllers/auth_controller.dart';
 import 'package:lagfrontend/controllers/message_controller.dart';
 import 'package:lagfrontend/controllers/quest_controller.dart';
+import 'package:lagfrontend/controllers/user_controller.dart';
 import 'package:lagfrontend/widgets/coordinated_popups_handler.dart';
 import 'package:lagfrontend/views/home/widgets/home_settings_bar.dart';
 import 'package:lagfrontend/views/home/widgets/home_bottom_bar.dart';
@@ -62,11 +63,9 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
 
-      // 2. Cargar datos en paralelo
-      await Future.wait([
-        mc.loadMessages(),
-        qc.loadQuests(),
-      ]);
+      // 2. Cargar datos secuencialmente: primero mensajes, luego misiones
+      await mc.loadMessages();
+      await qc.loadQuests();
 
       debugPrint('✅ [$timestamp] [HomeScreen] Datos cargados correctamente');
 
@@ -106,6 +105,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
+    final uc = Provider.of<UserController>(context, listen: false);
     final mc = Provider.of<MessageController>(context, listen: false);
     final qc = Provider.of<QuestController>(context, listen: false);
 
@@ -124,11 +124,21 @@ class _HomeScreenState extends State<HomeScreen> {
       if (processedAny) {
         debugPrint('✅ [HomeScreen] Popups procesados, recargando datos...');
         
-        // Recargar datos después de procesar popups
-        await Future.wait([
-          mc.loadMessages(),
-          qc.loadQuests(),
-        ]);
+        // Recargar datos después de procesar popups: primero mensajes, luego misiones, luego perfil
+        await mc.loadMessages();
+        await qc.loadQuests();
+        
+        // Refrescar perfil de usuario para actualizar XP y nivel
+        final token = uc.authToken;
+        if (token != null && token.isNotEmpty) {
+          try {
+            final updatedProfile = await uc.refreshProfile(token);
+            uc.setUser(updatedProfile, token);
+            debugPrint('✅ [HomeScreen] Perfil de usuario actualizado después de popups');
+          } catch (e) {
+            debugPrint('⚠️ [HomeScreen] Error actualizando perfil: $e');
+          }
+        }
 
         if (mounted) {
           setState(() {
@@ -154,6 +164,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) return;
 
     final auth = Provider.of<AuthController>(context, listen: false);
+    final uc = Provider.of<UserController>(context, listen: false);
     final mc = Provider.of<MessageController>(context, listen: false);
     final qc = Provider.of<QuestController>(context, listen: false);
 
@@ -166,14 +177,30 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
 
-      await Future.wait([
-        mc.loadMessages(),
-        qc.loadQuests(),
-      ]);
+      // Cargar datos secuencialmente: primero mensajes, luego misiones, luego perfil
+      await mc.loadMessages();
+      await qc.loadQuests();
+      
+      // Refrescar perfil de usuario para actualizar XP y nivel
+      final token = uc.authToken;
+      if (token != null && token.isNotEmpty) {
+        try {
+          final updatedProfile = await uc.refreshProfile(token);
+          uc.setUser(updatedProfile, token);
+          debugPrint('✅ [HomeScreen] Perfil de usuario actualizado en refresh');
+        } catch (e) {
+          debugPrint('⚠️ [HomeScreen] Error actualizando perfil en refresh: $e');
+        }
+      }
 
       debugPrint('✅ [HomeScreen] Datos refrescados');
 
       if (mounted) {
+        // Resetear flag de popups procesados para permitir mostrar nuevos popups
+        setState(() {
+          _popupsProcessed = false;
+        });
+        
         // Procesar popups después del refresco
         await _processPopups();
       }

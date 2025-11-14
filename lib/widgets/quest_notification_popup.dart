@@ -65,15 +65,11 @@ Future<bool> showQuestNotificationPopup(BuildContext context, dynamic quest) asy
             children: [
               TextSpan(
                 text: '$missionLine ',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 13),
+                style: AppTheme.popupContentSubtitleStyle(context),
               ),
               TextSpan(
                 text: '[ $title ]',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
+                style: AppTheme.popupContentTitleStyle(context),
               ),
             ],
           ),
@@ -83,10 +79,9 @@ Future<bool> showQuestNotificationPopup(BuildContext context, dynamic quest) asy
           Text(
             '"$welcome"',
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontStyle: FontStyle.italic,
-                  color: AppColors.textSecondary,
-                ),
+            style: AppTheme.popupContentDescriptionStyle(context).copyWith(
+              fontStyle: FontStyle.italic,
+            ),
           ),
         ],
         const SizedBox(height: 20),
@@ -98,7 +93,7 @@ Future<bool> showQuestNotificationPopup(BuildContext context, dynamic quest) asy
     context: context,
     barrierDismissible: false,
     builder: (ctx) => PopupForm(
-      icon: const Icon(Icons.priority_high),
+      icon: const Icon(Icons.priority_high, size: AppTheme.popupIconSize),
       title: 'NUEVA MISIÓN',
       actions: [
         PopupActionButton(label: 'Aceptar', onPressed: () => Navigator.of(ctx).pop(true)),

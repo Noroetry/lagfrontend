@@ -90,7 +90,13 @@ class _PopupFormState extends State<PopupForm> with SingleTickerProviderStateMix
                                   border: Border.all(color: AppColors.textPrimary, width: 1.2),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
-                                child: widget.icon,
+                                child: IconTheme(
+                                  data: IconThemeData(
+                                    size: AppTheme.popupIconSize,
+                                    color: Colors.white,
+                                  ),
+                                  child: widget.icon!,
+                                ),
                               ),
                               const SizedBox(width: 12),
                             ],
@@ -103,14 +109,27 @@ class _PopupFormState extends State<PopupForm> with SingleTickerProviderStateMix
                                 ),
                                 // Title should be centered within its container so the
                                 // combined icon+title group is visually centered.
-                                child: Text(widget.title, style: Theme.of(context).textTheme.titleLarge, textAlign: TextAlign.center),
+                                child: Text(
+                                  widget.title,
+                                  style: TextStyle(
+                                    color: AppColors.textPrimary,
+                                    fontSize: AppTheme.popupTitleFontSize,
+                                    fontWeight: AppTheme.popupTitleFontWeight,
+                                    decoration: TextDecoration.none,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
                               ),
                             ),
                           ],
                         ),
                         if (widget.description != null) ...[
                           const SizedBox(height: 12),
-                          Text(widget.description!, style: Theme.of(context).textTheme.bodyMedium, textAlign: TextAlign.center),
+                          Text(
+                            widget.description!,
+                            style: AppTheme.popupContentDescriptionStyle(context),
+                            textAlign: TextAlign.center,
+                          ),
                         ],
                         if (widget.child != null) ...[
                           const SizedBox(height: 12),

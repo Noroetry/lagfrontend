@@ -8,6 +8,9 @@ class User {
   // 0 = sin privilegios; >0 indica algún nivel administrativo.
   final int adminLevel;
 
+  // Monedas del usuario
+  final int coins;
+
   // Map libre para cualquier campo adicional que el backend devuelva
   // (por ejemplo: displayName, avatarUrl, bio, settings, etc.).
   final Map<String, dynamic> additionalData;
@@ -17,7 +20,8 @@ class User {
     required this.username,
     required this.email,
     required this.adminLevel,
-  this.additionalData = const {},
+    this.coins = 0,
+    this.additionalData = const {},
   });
 
   // Helper booleano compatible con código antiguo: true si adminLevel > 0
@@ -51,7 +55,9 @@ class User {
         adminLevel = adminRaw.clamp(0, 100).toInt();
       } else if (adminRaw is String) {
         final s = adminRaw.trim();
-        if (s.toUpperCase() == 'S' || s.toUpperCase() == 'Y' || s.toLowerCase() == 'true') {
+        if (s.toUpperCase() == 'S' ||
+            s.toUpperCase() == 'Y' ||
+            s.toLowerCase() == 'true') {
           adminLevel = 100;
         } else if (s.toUpperCase() == 'N' || s.toLowerCase() == 'false') {
           adminLevel = 0;
@@ -67,6 +73,21 @@ class User {
       adminLevel = 0;
     }
 
+    // Parse coins field
+    final coinsRaw = copy.remove('coins');
+    int coins = 0;
+    try {
+      if (coinsRaw is int) {
+        coins = coinsRaw;
+      } else if (coinsRaw is String) {
+        coins = int.tryParse(coinsRaw) ?? 0;
+      } else if (coinsRaw is double) {
+        coins = coinsRaw.toInt();
+      }
+    } catch (_) {
+      coins = 0;
+    }
+
     // No message parsing here — the messages feature was removed.
 
     return User(
@@ -74,6 +95,7 @@ class User {
       username: username,
       email: email,
       adminLevel: adminLevel,
+      coins: coins,
       additionalData: copy,
     );
   }
@@ -84,6 +106,7 @@ class User {
       'username': username,
       'email': email,
       'admin': adminLevel,
+      'coins': coins,
     };
     base.addAll(additionalData);
     return base;

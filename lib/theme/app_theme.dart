@@ -46,6 +46,73 @@ class AppTheme {
   // Standard maximum width for popup panels to keep consistent sizing
   static const double popupMaxWidth = 520.0;
 
+  // ========== POPUP TEXT STYLES ==========
+  // Unified text styles for all popups to ensure consistency
+  
+  // Popup header (icon + title at top)
+  static const double popupIconSize = 24.0;
+  static const double popupTitleFontSize = 20.0;
+  static const FontWeight popupTitleFontWeight = FontWeight.w600;
+  
+  // Popup content area styles
+  static const double popupContentTitleFontSize = 18.0;
+  static const FontWeight popupContentTitleFontWeight = FontWeight.bold;
+  
+  static const double popupContentSubtitleFontSize = 14.0;
+  static const FontWeight popupContentSubtitleFontWeight = FontWeight.w600;
+  
+  static const double popupContentDescriptionFontSize = 14.0;
+  
+  // Rewards/Adjunts display in popups
+  static const double popupRewardsFontSize = 14.0;
+  static const FontWeight popupRewardsFontWeight = FontWeight.w500;
+  
+  // Parameters/form labels in popups
+  static const double popupParamsFontSize = 14.0;
+  
+  // Helper method to get consistent popup content title style
+  static TextStyle popupContentTitleStyle(BuildContext context) {
+    return TextStyle(
+      color: AppColors.textPrimary,
+      fontSize: popupContentTitleFontSize,
+      fontWeight: popupContentTitleFontWeight,
+    );
+  }
+  
+  // Helper method to get consistent popup content subtitle style
+  static TextStyle popupContentSubtitleStyle(BuildContext context) {
+    return TextStyle(
+      color: AppColors.textSecondary,
+      fontSize: popupContentSubtitleFontSize,
+      fontWeight: popupContentSubtitleFontWeight,
+    );
+  }
+  
+  // Helper method to get consistent popup description style
+  static TextStyle popupContentDescriptionStyle(BuildContext context) {
+    return TextStyle(
+      color: AppColors.textSecondary,
+      fontSize: popupContentDescriptionFontSize,
+    );
+  }
+  
+  // Helper method to get consistent popup rewards style
+  static TextStyle popupRewardsStyle(BuildContext context) {
+    return TextStyle(
+      color: AppColors.textPrimary,
+      fontSize: popupRewardsFontSize,
+      fontWeight: popupRewardsFontWeight,
+    );
+  }
+  
+  // Helper method to get consistent popup params style
+  static TextStyle popupParamsStyle(BuildContext context) {
+    return TextStyle(
+      color: AppColors.textPrimary,
+      fontSize: popupParamsFontSize,
+    );
+  }
+
   // Standard input sizes used across popups/forms
   static const double inputHeight = 44.0;
   static const EdgeInsets inputContentPadding = EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0);

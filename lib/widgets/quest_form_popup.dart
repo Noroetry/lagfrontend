@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:lagfrontend/controllers/quest_controller.dart';
 import 'package:lagfrontend/widgets/popup_form.dart';
 import 'package:lagfrontend/theme/app_theme.dart';
+import 'package:lagfrontend/utils/quest_helpers.dart';
 
 /// Shows the form-style quest popup (state 'P').
 /// Returns the list returned by the backend or null if cancelled.
@@ -14,17 +15,6 @@ Future<List<dynamic>?> showQuestFormPopup(BuildContext context, dynamic id, Stri
   debugPrint('📝 [showQuestFormPopup] Presenting quest $questId form');
 
   final details = (quest is Map && quest['details'] is List) ? List.from(quest['details']) : <dynamic>[];
-
-  bool needsParam(Object? v) {
-    if (v == null) return false;
-    if (v is bool) return v;
-    if (v is num) return v != 0;
-    if (v is String) {
-      final s = v.trim().toLowerCase();
-      return s == 'true' || s == '1' || s == 'yes' || s == 'y';
-    }
-    return false;
-  }
 
   final paramDetails = <Map<String, dynamic>>[];
   for (final d in details) {

@@ -114,6 +114,19 @@ class _QuestCountdownState extends State<QuestCountdown> {
   @override
   Widget build(BuildContext context) {
     final label = _format(_remaining);
+    
+    // Determinar el color según el porcentaje restante
+    Color progressColor;
+    if (_fraction >= 0.75) {
+      progressColor = Colors.green[400]!;
+    } else if (_fraction >= 0.50) {
+      progressColor = Colors.yellow[600]!;
+    } else if (_fraction >= 0.25) {
+      progressColor = Colors.orange[600]!;
+    } else {
+      progressColor = Colors.red[600]!;
+    }
+    
     return SizedBox(
       width: 80,
       child: Column(
@@ -141,14 +154,14 @@ class _QuestCountdownState extends State<QuestCountdown> {
                     builder: (context, value, child) => LinearProgressIndicator(
                       value: value.clamp(0.0, 1.0),
                       backgroundColor: Colors.white12,
-                      color: Colors.green[400],
+                      color: progressColor,
                       minHeight: 8,
                     ),
                   )
                 : LinearProgressIndicator(
                     value: null,
                     backgroundColor: Colors.white12,
-                    color: Colors.green[400],
+                    color: progressColor,
                     minHeight: 8,
                   ),
           ),

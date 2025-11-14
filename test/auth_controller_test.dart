@@ -23,7 +23,9 @@ String makeJwt({required int exp}) {
     return base64Url.encode(utf8.encode(s)).replaceAll('=', '');
   }
 
-  final header = base64EncodeUnpadded(jsonEncode({'alg': 'none', 'typ': 'JWT'}));
+  final header = base64EncodeUnpadded(
+    jsonEncode({'alg': 'none', 'typ': 'JWT'}),
+  );
   final payload = base64EncodeUnpadded(jsonEncode({'exp': exp}));
   return '$header.$payload.'; // empty signature
 }
@@ -35,13 +37,23 @@ class FakeAuthService implements IAuthService {
 
   @override
   Future<AuthResponse> login(String usernameOrEmail, String password) async {
-    final user = User(id: '1', username: usernameOrEmail, email: '$usernameOrEmail@x.com', adminLevel: 0);
+    final user = User(
+      id: '1',
+      username: usernameOrEmail,
+      email: '$usernameOrEmail@x.com',
+      adminLevel: 0,
+      coins: 100,
+    );
     // Simulate backend returning no access token but maybe setting refresh cookie
     return AuthResponse(user: user, token: null);
   }
 
   @override
-  Future<AuthResponse> register(String username, String email, String password) {
+  Future<AuthResponse> register(
+    String username,
+    String email,
+    String password,
+  ) {
     throw UnimplementedError();
   }
 
@@ -49,13 +61,25 @@ class FakeAuthService implements IAuthService {
   Future<User> getProfile(String token) async {
     lastRequestedToken = token;
     if (token == 'bad') throw UnauthorizedException('bad');
-    return User(id: '1', username: 'u', email: 'u@x', adminLevel: 0);
+    return User(
+      id: '1',
+      username: 'u',
+      email: 'u@x',
+      adminLevel: 0,
+      coins: 250,
+    );
   }
 
   @override
   Future<AuthResponse> refresh() async {
     if (!refreshShouldSucceed) throw UnauthorizedException('refresh failed');
-    final user = User(id: '1', username: 'u', email: 'u@x', adminLevel: 0);
+    final user = User(
+      id: '1',
+      username: 'u',
+      email: 'u@x',
+      adminLevel: 0,
+      coins: 300,
+    );
     return AuthResponse(user: user, token: 'new_access_token');
   }
 

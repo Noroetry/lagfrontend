@@ -16,8 +16,9 @@ import 'package:lagfrontend/controllers/quest_controller.dart';
 /// - Each detail shows a check at right. If state == 'C' checks are disabled.
 ///   If state == 'L' checks are interactive and toggle via
 ///   `QuestController.checkQuestDetail` which calls `/check-detail-quest`.
-Future<void> showQuestDetailPopup(BuildContext context, dynamic quest) async {
-  if (!Navigator.of(context).mounted) return;
+/// Returns true if the quest was completed during this interaction.
+Future<bool> showQuestDetailPopup(BuildContext context, dynamic quest) async {
+  if (!Navigator.of(context).mounted) return false;
 
   final header = (quest is Map && quest['header'] is Map) ? Map<String, dynamic>.from(quest['header']) : <String, dynamic>{};
   final title = header['title']?.toString() ?? 'Misión';
@@ -55,7 +56,7 @@ Future<void> showQuestDetailPopup(BuildContext context, dynamic quest) async {
   // Track whether the dialog is still open to avoid accidental double-pop
   bool dialogOpen = true;
 
-  await showDialog<void>(
+  final result = await showDialog<bool>(
     context: context,
     // For detail popup: tapping outside should behave like pressing "Aceptar"
     barrierDismissible: true,
@@ -251,7 +252,7 @@ Future<void> showQuestDetailPopup(BuildContext context, dynamic quest) async {
                                             if (newState == 'C') {
                                               try {
                                                 if (dialogOpen) {
-                                                  rootNav.pop();
+                                                  rootNav.pop(true); // Retornar true para indicar que se completó
                                                   return;
                                                 }
                                               } catch (_) {}
@@ -311,4 +312,7 @@ Future<void> showQuestDetailPopup(BuildContext context, dynamic quest) async {
   // los popups se muestren múltiples veces si el backend aún devuelve quests
   // en estado 'N' o 'P'.
   // La sincronización local en checkQuestDetail() es suficiente.
+  
+  // Retornar true si se completó la quest
+  return result == true;
 }

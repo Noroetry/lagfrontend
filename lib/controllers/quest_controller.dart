@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:lagfrontend/models/user_model.dart';
 import 'package:lagfrontend/controllers/user_controller.dart';
 import 'package:lagfrontend/services/quest_service.dart';
+import 'package:lagfrontend/utils/quest_helpers.dart';
 
 /// Controller that manages quests for the currently authenticated user.
 class QuestController extends ChangeNotifier {
@@ -24,20 +25,13 @@ class QuestController extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  String? _idAsString(dynamic value) {
-    if (value == null) return null;
-    final str = value.toString();
-    if (str.isEmpty || str.toLowerCase() == 'null') return null;
-    return str;
-  }
-
   bool _removeQuestById(dynamic questId) {
-    final targetId = _idAsString(questId);
+    final targetId = idAsString(questId);
     if (targetId == null) return false;
     final originalLength = _quests.length;
     _quests.removeWhere((q) {
       if (q is! Map) return false;
-      final existingId = _idAsString(q['idQuestUser'] ?? q['id']);
+      final existingId = idAsString(q['idQuestUser'] ?? q['id']);
       return existingId == targetId;
     });
     return originalLength != _quests.length;
@@ -53,7 +47,7 @@ class QuestController extends ChangeNotifier {
         continue;
       }
 
-      final questId = _idAsString(quest['idQuestUser'] ?? quest['id']);
+      final questId = idAsString(quest['idQuestUser'] ?? quest['id']);
       if (questId == null) {
         _quests.add(quest);
         changed = true;
@@ -62,7 +56,7 @@ class QuestController extends ChangeNotifier {
 
       final index = _quests.indexWhere((existing) {
         if (existing is! Map) return false;
-        final existingId = _idAsString(existing['idQuestUser'] ?? existing['id']);
+        final existingId = idAsString(existing['idQuestUser'] ?? existing['id']);
         return existingId == questId;
       });
 
@@ -156,17 +150,6 @@ class QuestController extends ChangeNotifier {
     try {
       final details = (quest is Map && quest['details'] is List) ? List.from(quest['details']) : <dynamic>[];
 
-      bool needsParam(Object? v) {
-        if (v == null) return false;
-        if (v is bool) return v;
-        if (v is num) return v != 0;
-        if (v is String) {
-          final s = v.trim().toLowerCase();
-          return s == 'true' || s == '1' || s == 'yes' || s == 'y';
-        }
-        return false;
-      }
-
       final paramDetails = <dynamic>[];
       for (final d in details) {
         if (d is Map && needsParam(d['needParam'])) paramDetails.add(d);
@@ -242,16 +225,6 @@ class QuestController extends ChangeNotifier {
 
     // Build values payload expected by backend
     final details = (quest is Map && quest['details'] is List) ? List.from(quest['details']) : <dynamic>[];
-    bool needsParam(Object? v) {
-      if (v == null) return false;
-      if (v is bool) return v;
-      if (v is num) return v != 0;
-      if (v is String) {
-        final s = v.trim().toLowerCase();
-        return s == 'true' || s == '1' || s == 'yes' || s == 'y';
-      }
-      return false;
-    }
 
     final paramDetails = <dynamic>[];
     for (final d in details) {

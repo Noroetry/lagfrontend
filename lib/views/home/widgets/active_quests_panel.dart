@@ -1,7 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lagfrontend/controllers/quest_controller.dart';
+import 'package:lagfrontend/controllers/message_controller.dart';
+import 'package:lagfrontend/controllers/user_controller.dart';
 import 'package:lagfrontend/widgets/quest_detail_popup.dart';
+import 'package:lagfrontend/widgets/coordinated_popups_handler.dart';
 import 'package:lagfrontend/views/home/widgets/quest_countdown.dart';
 
 /// Widget that displays the list of active quests (state 'L' or 'C').
@@ -70,7 +74,39 @@ class ActiveQuestsPanel extends StatelessWidget {
               borderRadius: BorderRadius.circular(6.0),
               onTap: () async {
                 // Show detailed quest popup
-                await showQuestDetailPopup(context, q);
+                final completed = await showQuestDetailPopup(context, q);
+                
+                // Si se completó la quest, recargar datos
+                if (completed && context.mounted) {
+                  final mc = Provider.of<MessageController>(context, listen: false);
+                  final uc = Provider.of<UserController>(context, listen: false);
+                  
+                  debugPrint('✅ [ActiveQuestsPanel] Quest completada, recargando datos...');
+                  
+                  // Recargar mensajes (para mostrar el mensaje de recompensa)
+                  await mc.loadMessages();
+                  
+                  // Recargar quests (para actualizar el estado)
+                  await qc.loadQuests();
+                  
+                  // Refrescar perfil (para actualizar XP y nivel)
+                  final token = uc.authToken;
+                  if (token != null && token.isNotEmpty) {
+                    try {
+                      final updatedProfile = await uc.refreshProfile(token);
+                      uc.setUser(updatedProfile, token);
+                      debugPrint('✅ [ActiveQuestsPanel] Perfil actualizado después de completar quest');
+                    } catch (e) {
+                      debugPrint('⚠️ [ActiveQuestsPanel] Error actualizando perfil: $e');
+                    }
+                  }
+                  
+                  // Procesar popups automáticamente (mostrará el mensaje de recompensa)
+                  if (context.mounted) {
+                    debugPrint('🎁 [ActiveQuestsPanel] Procesando popups de recompensa...');
+                    await CoordinatedPopupsHandler.processAllPopups(context, mc, qc);
+                  }
+                }
               },
               child: SizedBox(
                 height: 36,
@@ -86,19 +122,11 @@ class ActiveQuestsPanel extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // If completed show a reward icon, otherwise show countdown
+                    // If completed show lock icon with countdown, otherwise show countdown
                     if (checked)
-                      IconButton(
-                        icon: const Icon(Icons.shopping_bag_outlined),
-                        color: Colors.amber,
-                        tooltip: 'Recompensas',
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('No implementado aún'),
-                            ),
-                          );
-                        },
+                      Padding(
+                        padding: const EdgeInsets.only(right: 4.0),
+                        child: _UnlockCountdown(quest: q),
                       )
                     else
                       Padding(
@@ -149,6 +177,109 @@ class ActiveQuestsPanel extends StatelessWidget {
           },
         );
       }),
+    );
+  }
+}
+
+/// Widget that shows a lock icon with countdown for completed quests
+/// waiting to be unlocked again based on their dateExpiration from backend
+class _UnlockCountdown extends StatefulWidget {
+  final dynamic quest;
+
+  const _UnlockCountdown({required this.quest});
+
+  @override
+  State<_UnlockCountdown> createState() => _UnlockCountdownState();
+}
+
+class _UnlockCountdownState extends State<_UnlockCountdown> {
+  Timer? _ticker;
+  Duration _remaining = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _update();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _update());
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  DateTime? _parse(dynamic raw) {
+    try {
+      if (raw == null) return null;
+      if (raw is DateTime) return raw;
+      if (raw is String) return DateTime.parse(raw);
+      if (raw is int) return DateTime.fromMillisecondsSinceEpoch(raw);
+    } catch (_) {}
+    return null;
+  }
+
+  void _update() {
+    if (!mounted) return;
+
+    // Según la documentación, para misiones en estado 'C' o 'E',
+    // dateExpiration indica cuándo se reactivará la misión.
+    // El backend ya calculó toda la lógica de periodicidad (FIXED/WEEKDAYS/PATTERN)
+    DateTime? unlockDate;
+
+    try {
+      if (widget.quest is Map) {
+        final q = widget.quest as Map;
+        
+        // Leer directamente dateExpiration - el backend ya hizo todos los cálculos
+        unlockDate = _parse(q['dateExpiration']);
+      }
+    } catch (e) {
+      debugPrint('Error leyendo dateExpiration: $e');
+    }
+
+    if (unlockDate == null) {
+      setState(() => _remaining = Duration.zero);
+      return;
+    }
+
+    final now = DateTime.now();
+    final rem = unlockDate.difference(now);
+    final clamped = rem.isNegative ? Duration.zero : rem;
+
+    setState(() => _remaining = clamped);
+  }
+
+  String _format(Duration d) {
+    if (d.inSeconds <= 0) return 'Disponible';
+    final days = d.inDays;
+    final hours = d.inHours.remainder(24).toString().padLeft(2, '0');
+    final mins = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final secs = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    if (days > 0) return '${days}d $hours:$mins:$secs';
+    return '$hours:$mins:$secs';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(
+          Icons.lock_outline,
+          color: Colors.amber,
+          size: 20,
+        ),
+        const SizedBox(width: 6),
+        Text(
+          _format(_remaining),
+          style: const TextStyle(
+            color: Colors.amber,
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
     );
   }
 }
