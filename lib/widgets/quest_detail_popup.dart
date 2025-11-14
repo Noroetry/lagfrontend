@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:lagfrontend/widgets/popup_form.dart';
 // app_theme not required here; styles come from global theme
 import 'package:lagfrontend/controllers/quest_controller.dart';
+import 'package:lagfrontend/controllers/auth_controller.dart';
 
 /// Shows a detailed quest popup when tapping a quest on the Home screen.
 /// - [quest] is the raw quest object (Map-like) returned by the backend.
@@ -212,6 +213,42 @@ Future<bool> showQuestDetailPopup(BuildContext context, dynamic quest) async {
                                   onChanged: (v) async {
                                     if (v == null) return;
 
+                                    // Verificar conexión antes de permitir cambios
+                                    try {
+                                      final auth = Provider.of<AuthController>(rootNav.context, listen: false);
+                                      final isConnected = await auth.verifyConnection(setErrorMessage: false);
+                                      
+                                      if (!isConnected) {
+                                        // Mostrar mensaje de error de conexión
+                                        if (!rootNav.mounted) return;
+                                        await showDialog<void>(
+                                          context: rootNav.context,
+                                          barrierDismissible: true,
+                                          builder: (errCtx) => PopupForm(
+                                            icon: const Icon(Icons.cloud_off, color: Colors.orange),
+                                            title: 'Sin conexión',
+                                            description: 'No se puede marcar el check sin conexión al servidor. Por favor, verifica tu conexión e inténtalo de nuevo.',
+                                            actions: [PopupActionButton(label: 'Entendido', onPressed: () => Navigator.of(errCtx).pop())],
+                                          ),
+                                        );
+                                        return;
+                                      }
+                                    } catch (e) {
+                                      // Error verificando conexión, asumir que no hay
+                                      if (!rootNav.mounted) return;
+                                      await showDialog<void>(
+                                        context: rootNav.context,
+                                        barrierDismissible: true,
+                                        builder: (errCtx) => PopupForm(
+                                          icon: const Icon(Icons.error_outline, color: Colors.red),
+                                          title: 'Error de conexión',
+                                          description: 'No se pudo verificar la conexión al servidor.',
+                                          actions: [PopupActionButton(label: 'Entendido', onPressed: () => Navigator.of(errCtx).pop())],
+                                        ),
+                                      );
+                                      return;
+                                    }
+
                                     // Determine whether this toggle will complete the quest
                                     final currentlyCheckedCount = checkedMap.values.where((e) => e).length;
                                     final willBeChecked = v == true;
@@ -275,13 +312,22 @@ Future<bool> showQuestDetailPopup(BuildContext context, dynamic quest) async {
                                       });
                                       try {
                                         if (!rootNav.mounted) return;
+                                        
+                                        // Mensaje de error más descriptivo
+                                        String errorMsg = e.toString();
+                                        if (errorMsg.toLowerCase().contains('timeout') || 
+                                            errorMsg.toLowerCase().contains('conexión') ||
+                                            errorMsg.toLowerCase().contains('connection')) {
+                                          errorMsg = 'Error de conexión al servidor. El servidor puede estar arrancando (tarda ~30s). Por favor, inténtalo de nuevo.';
+                                        }
+                                        
                                         await showDialog<void>(
                                           context: rootNav.context,
                                           barrierDismissible: false,
                                           builder: (errCtx) => PopupForm(
                                             icon: const Icon(Icons.error_outline),
                                             title: 'Error',
-                                            description: e.toString(),
+                                            description: errorMsg,
                                             actions: [PopupActionButton(label: 'Aceptar', onPressed: () => Navigator.of(errCtx).pop())],
                                           ),
                                         );

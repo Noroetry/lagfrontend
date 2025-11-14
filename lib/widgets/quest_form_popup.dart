@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:lagfrontend/controllers/quest_controller.dart';
+import 'package:lagfrontend/controllers/auth_controller.dart';
 import 'package:lagfrontend/widgets/popup_form.dart';
 import 'package:lagfrontend/theme/app_theme.dart';
 import 'package:lagfrontend/utils/quest_helpers.dart';
@@ -36,6 +37,26 @@ Future<List<dynamic>?> showQuestFormPopup(BuildContext context, dynamic id, Stri
           onPressed: () async {
             final valid = formKey.currentState?.validate() ?? true;
             if (!valid) return;
+
+            // Verificar conexión antes de enviar
+            final auth = Provider.of<AuthController>(context, listen: false);
+            final isConnected = await auth.verifyConnection(setErrorMessage: false);
+            
+            if (!isConnected) {
+              // Mostrar mensaje de error de conexión
+              if (!Navigator.of(context).mounted) return;
+              await showDialog<void>(
+                context: context,
+                barrierDismissible: true,
+                builder: (errCtx) => PopupForm(
+                  icon: const Icon(Icons.cloud_off, color: Colors.orange),
+                  title: 'Sin conexión',
+                  description: 'No se pueden enviar los parámetros sin conexión al servidor. Por favor, verifica tu conexión e inténtalo de nuevo.',
+                  actions: [PopupActionButton(label: 'Entendido', onPressed: () => Navigator.of(errCtx).pop())],
+                ),
+              );
+              return;
+            }
 
             final inputValues = controllers.map((c) => c.text).toList();
 
@@ -74,13 +95,21 @@ Future<List<dynamic>?> showQuestFormPopup(BuildContext context, dynamic id, Stri
               // If the parent navigator was unmounted while awaiting, stop.
               if (!parentNav.mounted) return;
 
+              // Mensaje de error más descriptivo
+              String errorMsg = e.toString();
+              if (errorMsg.toLowerCase().contains('timeout') || 
+                  errorMsg.toLowerCase().contains('conexión') ||
+                  errorMsg.toLowerCase().contains('connection')) {
+                errorMsg = 'Error de conexión al servidor. El servidor puede estar arrancando (tarda ~30s). Por favor, inténtalo de nuevo.';
+              }
+
               await showDialog<void>(
                 context: parentNav.context,
                 barrierDismissible: false,
                 builder: (ctxErr) => PopupForm(
                   icon: const Icon(Icons.error_outline),
                   title: 'Error',
-                  description: e.toString(),
+                  description: errorMsg,
                   actions: [PopupActionButton(label: 'Aceptar', onPressed: () => Navigator.of(ctxErr).pop())],
                 ),
               );

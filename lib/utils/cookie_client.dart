@@ -5,9 +5,14 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 /// A small HTTP client wrapper that persistently stores cookies (name=value)
 /// and sends them with subsequent requests. This allows us to rely on server-set
 /// HttpOnly cookies (refresh tokens) across requests in the mobile app.
+/// 
+/// Ahora soporta timeouts configurables para manejar servidores lentos.
 class CookieClient extends http.BaseClient {
   final http.Client _inner;
   final FlutterSecureStorage _storage;
+
+  // Timeout por defecto (35 segundos para servidores que se despiertan)
+  final Duration defaultTimeout;
 
   // In-memory cookie store: name -> value
   final Map<String, String> _cookies = {};
@@ -15,9 +20,13 @@ class CookieClient extends http.BaseClient {
   // Storage key
   static const _kCookieStoreKey = 'cookie_store';
 
-  CookieClient({http.Client? inner, FlutterSecureStorage? storage})
-      : _inner = inner ?? http.Client(),
-        _storage = storage ?? const FlutterSecureStorage();
+  CookieClient({
+    http.Client? inner, 
+    FlutterSecureStorage? storage,
+    Duration? timeout,
+  }) : _inner = inner ?? http.Client(),
+        _storage = storage ?? const FlutterSecureStorage(),
+        defaultTimeout = timeout ?? const Duration(seconds: 35);
 
   Future<void> _loadFromStorage() async {
     try {

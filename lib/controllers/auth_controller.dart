@@ -6,11 +6,13 @@ import 'package:lagfrontend/services/user_service.dart';
 import 'package:lagfrontend/controllers/user_controller.dart';
 import 'package:lagfrontend/config/app_config.dart';
 import 'package:lagfrontend/utils/exceptions.dart';
+import 'package:lagfrontend/services/connectivity_service.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 
 class AuthController extends ChangeNotifier {
   final SecureStorage storage;
   final IAuthService _authService;
+  final ConnectivityService _connectivity = ConnectivityService();
 
   late final UserController userController;
   bool _isLoading = true;
@@ -23,6 +25,7 @@ class AuthController extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   String? get connectionErrorMessage => _connectionErrorMessage;
+  ConnectivityService get connectivity => _connectivity;
 
   AuthController({SecureStorage? storage, IAuthService? authService, UserController? userController})
       : storage = storage ?? FlutterSecureStorageAdapter(),
@@ -59,11 +62,14 @@ class AuthController extends ChangeNotifier {
 
   Future<bool> verifyConnection({bool setErrorMessage = true}) async {
     try {
-      await _authService.ping();
-      if (_connectionErrorMessage != null) {
+      final isConnected = await _connectivity.checkConnectivity();
+      if (_connectionErrorMessage != null && isConnected) {
         _setConnectionError(null);
       }
-      return true;
+      if (!isConnected && setErrorMessage) {
+        _setConnectionError(_connectivity.getConnectionStatusMessage());
+      }
+      return isConnected;
     } catch (e) {
       if (kDebugMode) debugPrint('⚠️ [Auth Connection] Ping failed: $e');
       if (setErrorMessage) {

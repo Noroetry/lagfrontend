@@ -4,6 +4,7 @@ import 'package:lagfrontend/controllers/auth_controller.dart';
 import 'package:lagfrontend/controllers/message_controller.dart';
 import 'package:lagfrontend/controllers/quest_controller.dart';
 import 'package:lagfrontend/widgets/coordinated_popups_handler.dart';
+import 'package:lagfrontend/widgets/connection_status_banner.dart';
 import 'package:lagfrontend/views/home/widgets/home_settings_bar.dart';
 import 'package:lagfrontend/views/home/widgets/home_bottom_bar.dart';
 import 'package:lagfrontend/views/home/widgets/user_info_panel.dart';
@@ -196,6 +197,13 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // Connection status banner (solo visible cuando hay problemas)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12.0),
+                  child: ConnectionStatusBanner(),
+                ),
+                const SizedBox(height: 8),
+
                 // Top settings bar with support icons
                 const HomeSettingsBar(),
 

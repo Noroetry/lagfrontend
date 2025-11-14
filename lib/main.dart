@@ -69,6 +69,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   bool _hasHandledInitialResume = false;
+  DateTime? _lastResumeTime;
 
   @override
   void initState() {
@@ -85,24 +86,59 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
+    
+    final timestamp = DateTime.now().toString().substring(11, 23);
+    debugPrint('🔄 [$timestamp] [Main] App lifecycle changed to: $state');
+    
     if (state == AppLifecycleState.resumed) {
-      // Skip initial resume - HomeScreen will handle initial data load
-      if (!_hasHandledInitialResume) {
-        _hasHandledInitialResume = true;
-        debugPrint('⏯️ [Main] Initial resume - skipping data load (HomeScreen will handle it)');
+      _handleAppResumed();
+    } else if (state == AppLifecycleState.inactive) {
+      debugPrint('⏸️ [$timestamp] [Main] App became inactive (puede estar en transición o bloqueada)');
+    } else if (state == AppLifecycleState.paused) {
+      debugPrint('⏸️ [$timestamp] [Main] App paused (en background)');
+    } else if (state == AppLifecycleState.detached) {
+      debugPrint('⏹️ [$timestamp] [Main] App detached (cerrándose)');
+    } else if (state == AppLifecycleState.hidden) {
+      debugPrint('👁️ [$timestamp] [Main] App hidden (no visible pero puede estar ejecutándose)');
+    }
+  }
+
+  void _handleAppResumed() {
+    final now = DateTime.now();
+    final timestamp = now.toString().substring(11, 23);
+    
+    // Skip initial resume - HomeScreen will handle initial data load
+    if (!_hasHandledInitialResume) {
+      _hasHandledInitialResume = true;
+      debugPrint('⏯️ [$timestamp] [Main] Initial resume - skipping data load (HomeScreen will handle it)');
+      return;
+    }
+
+    // Throttle: no refrescar si ya refrescamos hace menos de 3 segundos
+    if (_lastResumeTime != null && now.difference(_lastResumeTime!).inSeconds < 3) {
+      debugPrint('⏯️ [$timestamp] [Main] Resume throttled (last resume was ${now.difference(_lastResumeTime!).inSeconds}s ago)');
+      return;
+    }
+
+    _lastResumeTime = now;
+
+    // Only reload on subsequent resumes (when user returns to app)
+    try {
+      final auth = Provider.of<AuthController>(context, listen: false);
+      
+      // Verificar si estamos autenticados antes de recargar
+      if (!auth.isAuthenticated) {
+        debugPrint('⏯️ [$timestamp] [Main] Not authenticated, skipping reload');
         return;
       }
-
-      // Only reload on subsequent resumes (when user returns to app)
-      try {
-        final auth = Provider.of<AuthController>(context, listen: false);
-        final mc = Provider.of<MessageController>(context, listen: false);
-        final qc = Provider.of<QuestController>(context, listen: false);
+      
+      final mc = Provider.of<MessageController>(context, listen: false);
+      final qc = Provider.of<QuestController>(context, listen: false);
+      
+      Future.microtask(() async {
+        debugPrint('🔄 [$timestamp] [Main] App resumed - reloading data usando refreshAllData...');
         
-        Future.microtask(() async {
-          final timestamp = DateTime.now().toString().substring(11, 23);
-          debugPrint('🔄 [$timestamp] [Main] App resumed - reloading data usando refreshAllData...');
-          
+        try {
           // Usar el método centralizado para garantizar consistencia
           await auth.refreshAllData(
             messageController: mc,
@@ -110,10 +146,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           );
           
           debugPrint('✅ [$timestamp] [Main] Data reload complete');
-        });
-      } catch (e) {
-        debugPrint('❌ [Main] Error en refresco: $e');
-      }
+        } catch (e) {
+          debugPrint('❌ [$timestamp] [Main] Error en refresco: $e');
+          // El ConnectivityService ya maneja los reintentos, solo registrar el error
+        }
+      });
+    } catch (e) {
+      debugPrint('❌ [$timestamp] [Main] Error setting up refresh: $e');
     }
   }
 
