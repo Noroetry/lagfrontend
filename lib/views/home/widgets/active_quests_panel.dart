@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:lagfrontend/controllers/auth_controller.dart';
 import 'package:lagfrontend/controllers/quest_controller.dart';
 import 'package:lagfrontend/controllers/message_controller.dart';
-import 'package:lagfrontend/controllers/user_controller.dart';
 import 'package:lagfrontend/widgets/quest_detail_popup.dart';
 import 'package:lagfrontend/widgets/coordinated_popups_handler.dart';
 import 'package:lagfrontend/views/home/widgets/quest_countdown.dart';
@@ -76,30 +76,18 @@ class ActiveQuestsPanel extends StatelessWidget {
                 // Show detailed quest popup
                 final completed = await showQuestDetailPopup(context, q);
                 
-                // Si se completó la quest, recargar datos
+                // Si se completó la quest, recargar datos usando el método centralizado
                 if (completed && context.mounted) {
+                  final auth = Provider.of<AuthController>(context, listen: false);
                   final mc = Provider.of<MessageController>(context, listen: false);
-                  final uc = Provider.of<UserController>(context, listen: false);
                   
-                  debugPrint('✅ [ActiveQuestsPanel] Quest completada, recargando datos...');
+                  debugPrint('✅ [ActiveQuestsPanel] Quest completada, recargando datos usando refreshAllData...');
                   
-                  // Recargar mensajes (para mostrar el mensaje de recompensa)
-                  await mc.loadMessages();
-                  
-                  // Recargar quests (para actualizar el estado)
-                  await qc.loadQuests();
-                  
-                  // Refrescar perfil (para actualizar XP y nivel)
-                  final token = uc.authToken;
-                  if (token != null && token.isNotEmpty) {
-                    try {
-                      final updatedProfile = await uc.refreshProfile(token);
-                      uc.setUser(updatedProfile, token);
-                      debugPrint('✅ [ActiveQuestsPanel] Perfil actualizado después de completar quest');
-                    } catch (e) {
-                      debugPrint('⚠️ [ActiveQuestsPanel] Error actualizando perfil: $e');
-                    }
-                  }
+                  // Usar el método centralizado para garantizar consistencia
+                  await auth.refreshAllData(
+                    messageController: mc,
+                    questController: qc,
+                  );
                   
                   // Procesar popups automáticamente (mostrará el mensaje de recompensa)
                   if (context.mounted) {

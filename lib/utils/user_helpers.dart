@@ -1,5 +1,6 @@
 /// Helper functions for user-related data parsing.
 /// Centralized utilities to avoid code duplication across UI widgets.
+library;
 
 /// Parses a dynamic value to a numeric value.
 /// Handles int, double, and String representations.

@@ -83,7 +83,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 
   @override
-  @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
@@ -102,35 +101,18 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         
         Future.microtask(() async {
           final timestamp = DateTime.now().toString().substring(11, 23);
-          debugPrint('🔄 [$timestamp] [Main] App resumed - reloading data...');
+          debugPrint('🔄 [$timestamp] [Main] App resumed - reloading data usando refreshAllData...');
           
-          try {
-            await auth.checkAuthenticationStatus();
-            debugPrint('✅ [$timestamp] [Main] Auth checked');
-          } catch (e) {
-            debugPrint('❌ [$timestamp] [Main] Auth check failed: $e');
-          }
-          
-          try {
-            debugPrint('📬 [$timestamp] [Main] Loading messages...');
-            await mc.loadMessages();
-            debugPrint('✅ [$timestamp] [Main] Messages loaded');
-          } catch (e) {
-            debugPrint('❌ [$timestamp] [Main] Messages load failed: $e');
-          }
-          
-          try {
-            debugPrint('⚔️ [$timestamp] [Main] Loading quests...');
-            await qc.loadQuests();
-            debugPrint('✅ [$timestamp] [Main] Quests loaded');
-          } catch (e) {
-            debugPrint('❌ [$timestamp] [Main] Quests load failed: $e');
-          }
+          // Usar el método centralizado para garantizar consistencia
+          await auth.refreshAllData(
+            messageController: mc,
+            questController: qc,
+          );
           
           debugPrint('✅ [$timestamp] [Main] Data reload complete');
         });
-      } catch (_) {
-        // If providers are not ready or during tests, ignore.
+      } catch (e) {
+        debugPrint('❌ [Main] Error en refresco: $e');
       }
     }
   }

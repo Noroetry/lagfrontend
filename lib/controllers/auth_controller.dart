@@ -285,6 +285,67 @@ class AuthController extends ChangeNotifier {
     await checkAuthenticationStatus();
   }
 
+  /// Refresca todos los datos del usuario: perfil, mensajes y quests.
+  /// Este método centraliza la lógica de refresco para garantizar consistencia.
+  /// Debe llamarse cuando:
+  /// - La app se reactiva (AppLifecycleState.resumed)
+  /// - El usuario hace pull-to-refresh
+  /// - Después de completar una quest
+  /// - Después de procesar popups
+  Future<void> refreshAllData({
+    required dynamic messageController,
+    required dynamic questController,
+  }) async {
+    if (!isAuthenticated) {
+      if (kDebugMode) debugPrint('⚠️ [Auth.refreshAllData] Usuario no autenticado, saltando refresco');
+      return;
+    }
+
+    final timestamp = DateTime.now().toString().substring(11, 23);
+    if (kDebugMode) debugPrint('🔄 [$timestamp] [Auth.refreshAllData] Iniciando refresco completo de datos...');
+
+    try {
+      // 1. Verificar conexión primero
+      final connected = await verifyConnection(setErrorMessage: false);
+      if (!connected) {
+        if (kDebugMode) debugPrint('⚠️ [$timestamp] [Auth.refreshAllData] Sin conexión');
+        return;
+      }
+
+      // 2. Refrescar perfil de usuario (XP, nivel, etc.)
+      final token = authToken;
+      if (token != null && token.isNotEmpty) {
+        try {
+          final updatedProfile = await userController.refreshProfile(token);
+          userController.setUser(updatedProfile, token);
+          if (kDebugMode) debugPrint('✅ [$timestamp] [Auth.refreshAllData] Perfil actualizado');
+        } catch (e) {
+          if (kDebugMode) debugPrint('❌ [$timestamp] [Auth.refreshAllData] Error actualizando perfil: $e');
+        }
+      }
+
+      // 3. Cargar mensajes
+      try {
+        await messageController.loadMessages();
+        if (kDebugMode) debugPrint('✅ [$timestamp] [Auth.refreshAllData] Mensajes cargados');
+      } catch (e) {
+        if (kDebugMode) debugPrint('❌ [$timestamp] [Auth.refreshAllData] Error cargando mensajes: $e');
+      }
+
+      // 4. Cargar quests
+      try {
+        await questController.loadQuests();
+        if (kDebugMode) debugPrint('✅ [$timestamp] [Auth.refreshAllData] Quests cargadas');
+      } catch (e) {
+        if (kDebugMode) debugPrint('❌ [$timestamp] [Auth.refreshAllData] Error cargando quests: $e');
+      }
+
+      if (kDebugMode) debugPrint('✅ [$timestamp] [Auth.refreshAllData] Refresco completo finalizado');
+    } catch (e) {
+      if (kDebugMode) debugPrint('❌ [$timestamp] [Auth.refreshAllData] Error general: $e');
+    }
+  }
+
   @override
   void dispose() {
     try {

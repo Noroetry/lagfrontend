@@ -1,5 +1,6 @@
 /// Helper functions for quest-related operations.
 /// Centralized utilities to avoid code duplication across quest widgets and controllers.
+library;
 
 /// Determines if a parameter field requires a value based on its needParam flag.
 /// 

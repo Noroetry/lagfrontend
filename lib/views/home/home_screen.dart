@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:lagfrontend/controllers/auth_controller.dart';
 import 'package:lagfrontend/controllers/message_controller.dart';
 import 'package:lagfrontend/controllers/quest_controller.dart';
-import 'package:lagfrontend/controllers/user_controller.dart';
 import 'package:lagfrontend/widgets/coordinated_popups_handler.dart';
 import 'package:lagfrontend/views/home/widgets/home_settings_bar.dart';
 import 'package:lagfrontend/views/home/widgets/home_bottom_bar.dart';
@@ -63,9 +62,11 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
 
-      // 2. Cargar datos secuencialmente: primero mensajes, luego misiones
-      await mc.loadMessages();
-      await qc.loadQuests();
+      // 2. Cargar datos usando el método centralizado
+      await auth.refreshAllData(
+        messageController: mc,
+        questController: qc,
+      );
 
       debugPrint('✅ [$timestamp] [HomeScreen] Datos cargados correctamente');
 
@@ -105,7 +106,6 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    final uc = Provider.of<UserController>(context, listen: false);
     final mc = Provider.of<MessageController>(context, listen: false);
     final qc = Provider.of<QuestController>(context, listen: false);
 
@@ -122,23 +122,15 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
 
       if (processedAny) {
-        debugPrint('✅ [HomeScreen] Popups procesados, recargando datos...');
+        debugPrint('✅ [HomeScreen] Popups procesados, recargando datos usando refreshAllData...');
         
-        // Recargar datos después de procesar popups: primero mensajes, luego misiones, luego perfil
-        await mc.loadMessages();
-        await qc.loadQuests();
+        final auth = Provider.of<AuthController>(context, listen: false);
         
-        // Refrescar perfil de usuario para actualizar XP y nivel
-        final token = uc.authToken;
-        if (token != null && token.isNotEmpty) {
-          try {
-            final updatedProfile = await uc.refreshProfile(token);
-            uc.setUser(updatedProfile, token);
-            debugPrint('✅ [HomeScreen] Perfil de usuario actualizado después de popups');
-          } catch (e) {
-            debugPrint('⚠️ [HomeScreen] Error actualizando perfil: $e');
-          }
-        }
+        // Usar el método centralizado para garantizar consistencia
+        await auth.refreshAllData(
+          messageController: mc,
+          questController: qc,
+        );
 
         if (mounted) {
           setState(() {
@@ -164,34 +156,17 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) return;
 
     final auth = Provider.of<AuthController>(context, listen: false);
-    final uc = Provider.of<UserController>(context, listen: false);
     final mc = Provider.of<MessageController>(context, listen: false);
     final qc = Provider.of<QuestController>(context, listen: false);
 
-    debugPrint('🔄 [HomeScreen] Refrescando datos...');
+    debugPrint('🔄 [HomeScreen] Refrescando datos usando refreshAllData...');
 
     try {
-      final connected = await auth.verifyConnection();
-      if (!connected) {
-        debugPrint('⚠️ [HomeScreen] Sin conexión al backend');
-        return;
-      }
-
-      // Cargar datos secuencialmente: primero mensajes, luego misiones, luego perfil
-      await mc.loadMessages();
-      await qc.loadQuests();
-      
-      // Refrescar perfil de usuario para actualizar XP y nivel
-      final token = uc.authToken;
-      if (token != null && token.isNotEmpty) {
-        try {
-          final updatedProfile = await uc.refreshProfile(token);
-          uc.setUser(updatedProfile, token);
-          debugPrint('✅ [HomeScreen] Perfil de usuario actualizado en refresh');
-        } catch (e) {
-          debugPrint('⚠️ [HomeScreen] Error actualizando perfil en refresh: $e');
-        }
-      }
+      // Usar el método centralizado para garantizar consistencia
+      await auth.refreshAllData(
+        messageController: mc,
+        questController: qc,
+      );
 
       debugPrint('✅ [HomeScreen] Datos refrescados');
 
