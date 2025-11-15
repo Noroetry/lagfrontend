@@ -4,6 +4,7 @@ import 'package:lagfrontend/controllers/auth_controller.dart';
 import 'package:lagfrontend/widgets/app_background.dart';
 import 'package:lagfrontend/widgets/popup_form.dart';
 import 'package:lagfrontend/widgets/reusable_input.dart';
+import 'package:lagfrontend/views/auth/auth_gate.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -17,6 +18,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Limpiar errores previos al entrar a la pantalla
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<AuthController>(context, listen: false).clearError();
+    });
+  }
 
   @override
   void dispose() {
@@ -36,9 +46,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
     if (!mounted) return;
     if (authController.isAuthenticated) {
-      // No navegamos manualmente - AuthGate detectará el cambio automáticamente
-      // Solo hacemos pop para volver y que AuthGate tome control
-      Navigator.of(context).pop();
+      // Limpiar TODA la pila de navegación y volver a AuthGate
+      // AuthGate ahora mostrará HomeScreen ya que isAuthenticated = true
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const AuthGate()),
+        (route) => false,
+      );
     }
   }
 
@@ -60,7 +73,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 }
                 return PopupActionButton(label: 'Registrar', onPressed: _submitRegister);
               }),
-              PopupActionButton(label: 'Volver', onPressed: () => Navigator.of(context).maybePop()),
+              PopupActionButton(
+                label: 'Volver',
+                onPressed: () => Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const AuthGate()),
+                  (route) => false,
+                ),
+              ),
             ],
             child: Form(
               key: _formKey,

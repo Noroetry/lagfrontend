@@ -60,6 +60,11 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Limpia los mensajes de error. Útil al navegar entre pantallas.
+  void clearError() {
+    _setErrorMessage(null);
+  }
+
   Future<bool> verifyConnection({bool setErrorMessage = true}) async {
     try {
       final isConnected = await _connectivity.checkConnectivity();

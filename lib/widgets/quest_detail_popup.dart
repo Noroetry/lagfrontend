@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lagfrontend/widgets/popup_form.dart';
+import 'package:lagfrontend/widgets/circular_quest_countdown.dart';
 // app_theme not required here; styles come from global theme
 import 'package:lagfrontend/controllers/quest_controller.dart';
 import 'package:lagfrontend/controllers/auth_controller.dart';
@@ -25,6 +26,15 @@ Future<bool> showQuestDetailPopup(BuildContext context, dynamic quest) async {
   final title = header['title']?.toString() ?? 'Misión';
   final description = header['description']?.toString() ?? '';
   final state = quest is Map && quest['state'] != null ? quest['state'].toString() : '';
+  
+  // Extract expiration date and penalty flag for state 'L' quests
+  final dateExpiration = (quest is Map) ? quest['dateExpiration'] : null;
+  final durationMinutes = (quest is Map && quest['durationMinutes'] != null) 
+      ? (quest['durationMinutes'] is int ? quest['durationMinutes'] as int : int.tryParse(quest['durationMinutes'].toString()))
+      : null;
+  final havePenalty = (quest is Map && quest['havePenalty'] != null) 
+      ? (quest['havePenalty'] is bool ? quest['havePenalty'] as bool : quest['havePenalty'].toString().toLowerCase() == 'true')
+      : false;
 
   // Build a robust map from quest_users_detail entries to their stored value.
   // We map both by the per-user detail id (e.g. idQuestUserDetail) and by the
@@ -266,6 +276,7 @@ Future<bool> showQuestDetailPopup(BuildContext context, dynamic quest) async {
                                     }
 
                                     try {
+                                      // ignore: use_build_context_synchronously
                                       final qc = Provider.of<QuestController>(rootNav.context, listen: false);
                                       final updated = await qc.checkQuestDetail(idQuestUserDetail: key, checked: v);
 
@@ -341,6 +352,34 @@ Future<bool> showQuestDetailPopup(BuildContext context, dynamic quest) async {
                       ),
                     );
                   }),
+
+                  const SizedBox(height: 12),
+                  
+                  // Circular countdown timer for state 'L' quests
+                  if (state == 'L' && dateExpiration != null) ...[
+                    const SizedBox(height: 8),
+                    CircularQuestCountdown(
+                      dateExpirationRaw: dateExpiration,
+                      durationMinutes: durationMinutes,
+                      size: 40,
+                    ),
+                    const SizedBox(height: 12),
+                    
+                    // Penalty warning message
+                    if (havePenalty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Text(
+                          'No cumplir con esta misión tendrá una penalización.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.red[400],
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                  ],
 
                   const SizedBox(height: 12),
                 ],

@@ -30,6 +30,22 @@ class AuthService implements IAuthService {
   Future<AuthResponse> login(String usernameOrEmail, String password) async {
     return await _connectivity.executeWithRetry(
       operationName: 'Login',
+      shouldRetry: (error) {
+        // Para login, solo reintentar errores de red/timeout
+        // NO reintentar errores de credenciales inválidas
+        if (error is ApiException) {
+          final msg = error.toString().toLowerCase();
+          // Si el error menciona credenciales, no reintentar
+          if (msg.contains('credenciales')) return false;
+          if (msg.contains('credentials')) return false;
+          if (msg.contains('contraseña')) return false;
+          if (msg.contains('password')) return false;
+          if (msg.contains('usuario no encontrado')) return false;
+          if (msg.contains('user not found')) return false;
+        }
+        // Para otros errores, usar la lógica por defecto
+        return _connectivity.defaultShouldRetry(error);
+      },
       request: () async {
         final response = await _client.post(
           Uri.parse('$_baseUrl/login'),

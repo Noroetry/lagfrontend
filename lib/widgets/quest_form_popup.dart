@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -38,15 +39,21 @@ Future<List<dynamic>?> showQuestFormPopup(BuildContext context, dynamic id, Stri
             final valid = formKey.currentState?.validate() ?? true;
             if (!valid) return;
 
-            // Verificar conexión antes de enviar
+            // Capture context-dependent values BEFORE any async operations
             final auth = Provider.of<AuthController>(context, listen: false);
+            final qc = Provider.of<QuestController>(context, listen: false);
+            final parentNav = Navigator.of(context);
+            final rootNav = Navigator.of(context, rootNavigator: true);
+            final dialogNav = Navigator.of(ctx);
+            
+            // Verificar conexión antes de enviar
             final isConnected = await auth.verifyConnection(setErrorMessage: false);
             
             if (!isConnected) {
               // Mostrar mensaje de error de conexión
-              if (!Navigator.of(context).mounted) return;
+              if (!parentNav.mounted) return;
               await showDialog<void>(
-                context: context,
+                context: parentNav.context,
                 barrierDismissible: true,
                 builder: (errCtx) => PopupForm(
                   icon: const Icon(Icons.cloud_off, color: Colors.orange),
@@ -60,25 +67,23 @@ Future<List<dynamic>?> showQuestFormPopup(BuildContext context, dynamic id, Stri
 
             final inputValues = controllers.map((c) => c.text).toList();
 
-            final qc = Provider.of<QuestController>(context, listen: false);
-            // Capture NavigatorStates before any awaits to avoid using
-            // the BuildContext across async gaps.
-            final parentNav = Navigator.of(context);
-            final rootNav = Navigator.of(context, rootNavigator: true);
-            final dialogNav = Navigator.of(ctx);
-
             try {
-              showDialog<void>(
-                context: parentNav.context,
-                barrierDismissible: false,
-                builder: (ctxLoading) => const Center(child: CircularProgressIndicator()),
-              );
+              // Show loading dialog - check mounted state first
+              if (parentNav.mounted) {
+                unawaited(
+                  showDialog<void>(
+                    context: parentNav.context,
+                    barrierDismissible: false,
+                    builder: (ctxLoading) => const Center(child: CircularProgressIndicator()),
+                  ),
+                );
+              }
 
               final submitted = await qc.submitParamsForQuest(quest, inputValues);
 
               // Check the captured navigator's mounted state instead of
-              // using the original BuildContext after an await.
-              if (!parentNav.mounted) return;
+              // using BuildContext across async gaps.
+              if (!rootNav.mounted) return;
 
               try {
                 rootNav.pop();

@@ -138,6 +138,12 @@ class ConnectivityService {
     throw ApiException('Error ejecutando petición después de $maxAttempts intentos');
   }
 
+  /// Determina si un error debería provocar un reintento (lógica por defecto).
+  /// Puede ser usado por servicios que necesitan personalizar shouldRetry.
+  bool defaultShouldRetry(dynamic error) {
+    return _shouldRetryError(error);
+  }
+
   /// Determina si un error debería provocar un reintento.
   bool _shouldRetryError(dynamic error) {
     // Reintentar para errores de red/timeout
@@ -150,8 +156,17 @@ class ConnectivityService {
     // Para ApiException, revisar el mensaje
     if (error is ApiException) {
       final msg = error.toString().toLowerCase();
+      // No reintentar para errores de credenciales o autenticación
+      if (msg.contains('credenciales inválidas')) return false;
+      if (msg.contains('credenciales incorrectas')) return false;
+      if (msg.contains('contraseña incorrecta')) return false;
+      if (msg.contains('usuario no encontrado')) return false;
+      if (msg.contains('invalid credentials')) return false;
+      if (msg.contains('invalid password')) return false;
+      if (msg.contains('user not found')) return false;
       // No reintentar para errores de validación
       if (msg.contains('inválido') || msg.contains('rechazado')) return false;
+      if (msg.contains('invalid') || msg.contains('rejected')) return false;
       // Reintentar para otros errores de API
       return true;
     }
