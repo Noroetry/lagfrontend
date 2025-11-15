@@ -8,7 +8,7 @@ import 'package:lagfrontend/widgets/quest_detail_popup.dart';
 import 'package:lagfrontend/widgets/coordinated_popups_handler.dart';
 import 'package:lagfrontend/views/home/widgets/quest_countdown.dart';
 
-/// Widget that displays the list of active quests (state 'L' or 'C').
+/// Widget that displays the list of active quests (state 'L', 'C', or 'E').
 class ActiveQuestsPanel extends StatelessWidget {
   const ActiveQuestsPanel({super.key});
 
@@ -30,7 +30,7 @@ class ActiveQuestsPanel extends StatelessWidget {
         final active = qc.quests.where((q) {
           try {
             final s = q is Map && q['state'] != null ? q['state'].toString() : '';
-            return s == 'L' || s == 'C';
+            return s == 'L' || s == 'C' || s == 'E';
           } catch (_) {
             return false;
           }
@@ -69,6 +69,7 @@ class ActiveQuestsPanel extends StatelessWidget {
             } catch (_) {}
 
             final checked = questState == 'C';
+            final expired = questState == 'E';
 
             return InkWell(
               borderRadius: BorderRadius.circular(6.0),
@@ -105,13 +106,17 @@ class ActiveQuestsPanel extends StatelessWidget {
                       child: Text(
                         questTitle,
                         style: TextStyle(
-                          color: checked ? Colors.green[400] : Colors.white,
+                          color: checked
+                              ? Colors.green[400]
+                              : expired
+                                  ? Colors.red[400]
+                                  : Colors.white,
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // If completed show lock icon with countdown, otherwise show countdown
-                    if (checked)
+                    // If completed or expired show lock icon with countdown, otherwise show countdown
+                    if (checked || expired)
                       Padding(
                         padding: const EdgeInsets.only(right: 4.0),
                         child: _UnlockCountdown(quest: q),

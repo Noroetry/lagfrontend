@@ -172,15 +172,6 @@ Future<bool> showQuestDetailPopup(BuildContext context, dynamic quest) async {
         child: PopupForm(
           icon: const Icon(Icons.menu_book),
           title: 'MISIÓN',
-          actions: [
-            PopupActionButton(
-              label: 'Aceptar',
-              onPressed: () {
-                dialogOpen = false;
-                Navigator.of(ctx).pop();
-              },
-            )
-          ],
           child: StatefulBuilder(builder: (ctxSb, setStateSb) {
           return Material(
             color: Colors.transparent,
