@@ -14,7 +14,12 @@ class AuthGate extends StatelessWidget {
     debugPrint('[AuthGate] build: isAuthenticated = [33m[1m[4m[7m[41m${authController.isAuthenticated}[0m, isLoading = ${authController.isLoading}, connectionError = ${authController.connectionErrorMessage}');
     if (authController.connectionErrorMessage != null) {
       debugPrint('[AuthGate] build: Mostrando ConnectionErrorScreen');
-      return ConnectionErrorScreen(message: authController.connectionErrorMessage);
+      return ConnectionErrorScreen(
+        message: authController.connectionErrorMessage,
+        onRetry: () async {
+          await authController.retryConnection();
+        },
+      );
     }
 
     if (authController.isLoading) {

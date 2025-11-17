@@ -4,7 +4,8 @@ import 'package:lagfrontend/controllers/auth_controller.dart';
 
 class ConnectionErrorScreen extends StatelessWidget {
   final String? message;
-  const ConnectionErrorScreen({super.key, this.message});
+  final Future<void> Function()? onRetry;
+  const ConnectionErrorScreen({super.key, this.message, this.onRetry});
 
   @override
   Widget build(BuildContext context) {
@@ -27,8 +28,11 @@ class ConnectionErrorScreen extends StatelessWidget {
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: () async {
-                  // Intentar reintento: el controller hará ping y re-evaluará el estado.
-                  await auth.retryConnection();
+                  if (onRetry != null) {
+                    await onRetry!();
+                  } else {
+                    await auth.retryConnection();
+                  }
                 },
                 child: const Text('Reintentar'),
               ),

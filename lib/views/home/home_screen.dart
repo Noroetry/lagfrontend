@@ -36,23 +36,19 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  /// Inicializa la pantalla: carga datos y luego procesa popups
+  /// Inicializa la pantalla: carga datos y luego muestra todos los popups seguidos, refrescando solo al final
   Future<void> _initializeHomeScreen() async {
     final timestamp = DateTime.now().toString().substring(11, 23);
     debugPrint('🔵 [$timestamp] [HomeScreen._initializeHomeScreen] Called (mounted=$mounted, done=$_initialLoadDone, inProgress=$_initialLoadInProgress)');
-    
     if (!mounted || _initialLoadDone || _initialLoadInProgress) {
       debugPrint('⚠️ [$timestamp] [HomeScreen._initializeHomeScreen] Skipped (mounted=$mounted, done=$_initialLoadDone, inProgress=$_initialLoadInProgress)');
       return;
     }
-
     _initialLoadInProgress = true;
     debugPrint('🚀 [$timestamp] [HomeScreen] Iniciando carga inicial de datos...');
-
     final auth = Provider.of<AuthController>(context, listen: false);
     final mc = Provider.of<MessageController>(context, listen: false);
     final qc = Provider.of<QuestController>(context, listen: false);
-
     try {
       // 1. Verificar conexión
       final connected = await auth.verifyConnection();
@@ -65,23 +61,26 @@ class _HomeScreenState extends State<HomeScreen> {
         }
         return;
       }
-
       // 2. Cargar datos usando el método centralizado
       await auth.refreshAllData(
         messageController: mc,
         questController: qc,
       );
-
       debugPrint('✅ [$timestamp] [HomeScreen] Datos cargados correctamente');
-
+      // 3. Procesar todos los popups seguidos (sin refresh entre ellos)
+      await _processPopupsSequentially();
+      // 4. Refrescar datos solo una vez después de cerrar todos los popups
+      await auth.refreshAllData(
+        messageController: mc,
+        questController: qc,
+      );
+      debugPrint('✅ [$timestamp] [HomeScreen] Datos recargados después de popups');
       if (mounted) {
         setState(() {
           _initialLoadDone = true;
           _initialLoadInProgress = false;
+          _popupsProcessed = true;
         });
-
-        // 3. Procesar popups después de cargar datos
-        await _processPopups();
       }
     } catch (e) {
       debugPrint('❌ [$timestamp] [HomeScreen] Error cargando datos: $e');
@@ -89,7 +88,6 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() {
           _initialLoadInProgress = false;
         });
-        
         // Reintentar después de 2 segundos
         Future.delayed(const Duration(seconds: 2), () {
           if (mounted && !_initialLoadInProgress && !_initialLoadDone) {
@@ -100,60 +98,30 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// Procesa todos los popups de mensajes y quests secuencialmente
-  Future<void> _processPopups() async {
+  /// Procesa todos los popups de mensajes y quests secuencialmente, sin refresh entre ellos
+  Future<void> _processPopupsSequentially() async {
     final timestamp = DateTime.now().toString().substring(11, 23);
-    debugPrint('🔵 [$timestamp] [HomeScreen._processPopups] Called (mounted=$mounted, popupsProcessed=$_popupsProcessed)');
-    
+    debugPrint('🔵 [$timestamp] [HomeScreen._processPopupsSequentially] Called (mounted=$mounted, popupsProcessed=$_popupsProcessed)');
     if (!mounted || _popupsProcessed) {
-      debugPrint('⚠️ [$timestamp] [HomeScreen._processPopups] Skipped (mounted=$mounted, popupsProcessed=$_popupsProcessed)');
+      debugPrint('⚠️ [$timestamp] [HomeScreen._processPopupsSequentially] Skipped (mounted=$mounted, popupsProcessed=$_popupsProcessed)');
       return;
     }
-
     final mc = Provider.of<MessageController>(context, listen: false);
     final qc = Provider.of<QuestController>(context, listen: false);
-
-    debugPrint('🔄 [$timestamp] [HomeScreen] Iniciando procesamiento de popups...');
-
+    debugPrint('🔄 [$timestamp] [HomeScreen] Iniciando procesamiento de popups secuencial...');
     try {
-      // Procesar popups de forma secuencial
-      final processedAny = await CoordinatedPopupsHandler.processAllPopups(
+      // Procesar popups de forma secuencial, sin refresh entre ellos
+      await CoordinatedPopupsHandler.processAllPopups(
         context,
         mc,
         qc,
       );
-
-      if (!mounted) return;
-
-      if (processedAny) {
-        debugPrint('✅ [HomeScreen] Popups procesados, recargando datos usando refreshAllData...');
-        
-        final auth = Provider.of<AuthController>(context, listen: false);
-        
-        // Usar el método centralizado para garantizar consistencia
-        await auth.refreshAllData(
-          messageController: mc,
-          questController: qc,
-        );
-
-        if (mounted) {
-          setState(() {
-            _popupsProcessed = true;
-          });
-          debugPrint('✅ [HomeScreen] Datos recargados después de popups');
-        }
-      } else {
-        debugPrint('ℹ️ [HomeScreen] No había popups pendientes');
-        if (mounted) {
-          setState(() {
-            _popupsProcessed = true;
-          });
-        }
-      }
     } catch (e) {
-      debugPrint('❌ [HomeScreen] Error procesando popups: $e');
+      debugPrint('❌ [$timestamp] [HomeScreen] Error procesando popups: $e');
     }
   }
+
+  // ...el método _processPopups original se elimina, ya que ahora usamos _processPopupsSequentially
 
   /// Refresca los datos manualmente (ej. al hacer pull-to-refresh)
   Future<void> _refreshData() async {
@@ -181,7 +149,7 @@ class _HomeScreenState extends State<HomeScreen> {
         });
         
         // Procesar popups después del refresco
-        await _processPopups();
+        // Llamada eliminada: _processPopups() ya no existe ni es necesaria
       }
     } catch (e) {
       debugPrint('❌ [HomeScreen] Error refrescando datos: $e');

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:lagfrontend/utils/secure_storage_adapter.dart';
+import 'dart:async';
 import 'package:lagfrontend/models/user_model.dart';
 import 'package:lagfrontend/services/i_auth_service.dart';
 import 'package:lagfrontend/services/user_service.dart';
@@ -205,7 +206,10 @@ class AuthController extends ChangeNotifier {
     } catch (_) {}
 
     try {
-      final response = await _authService.login(usernameOrEmail, password);
+      // Timeout corto para feedback rápido
+      final response = await _authService
+          .login(usernameOrEmail, password)
+          .timeout(const Duration(seconds: 10));
       userController.setUser(response.user, response.token);
 
       // If backend didn't return an access token but set a refresh cookie, try to refresh once
@@ -228,6 +232,9 @@ class AuthController extends ChangeNotifier {
         }
       }
       notifyListeners();
+    } on TimeoutException {
+      _setErrorMessage('No se pudo conectar. Intenta de nuevo.');
+      userController.clearUser();
     } catch (e) {
       _setErrorMessage(e.toString());
       userController.clearUser();
@@ -250,7 +257,10 @@ class AuthController extends ChangeNotifier {
     } catch (_) {}
 
     try {
-      final response = await _authService.register(username, email, password);
+      // Timeout corto para feedback rápido
+      final response = await _authService
+          .register(username, email, password)
+          .timeout(const Duration(seconds: 10));
 
       // Ensure we delegate user state
       userController.setUser(response.user, response.token);
@@ -264,6 +274,9 @@ class AuthController extends ChangeNotifier {
         }
       }
       notifyListeners();
+    } on TimeoutException {
+      _setErrorMessage('No se pudo conectar. Intenta de nuevo.');
+      userController.clearUser();
     } catch (e) {
       _setErrorMessage(e.toString());
       userController.clearUser();
