@@ -45,9 +45,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _passwordController.text,
     );
     if (!mounted) return;
+    debugPrint('[RegisterScreen] _submitRegister: isAuthenticated = ${authController.isAuthenticated}');
     if (authController.isAuthenticated) {
-      // Limpiar TODA la pila de navegación y volver a AuthGate
-      // AuthGate ahora mostrará HomeScreen ya que isAuthenticated = true
+      debugPrint('[RegisterScreen] _submitRegister: Navegando a AuthGate (limpiando pila)');
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const AuthGate()),
         (route) => false,

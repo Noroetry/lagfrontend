@@ -39,9 +39,9 @@ class _LoginScreenState extends State<LoginScreen> {
     final authController = Provider.of<AuthController>(context, listen: false);
     await authController.login(_usernameOrEmailController.text.trim(), _passwordController.text);
     if (!mounted) return;
+    debugPrint('[LoginScreen] _submitLogin: isAuthenticated = ${authController.isAuthenticated}');
     if (authController.isAuthenticated) {
-      // Limpiar TODA la pila de navegación y volver a AuthGate
-      // AuthGate ahora mostrará HomeScreen ya que isAuthenticated = true
+      debugPrint('[LoginScreen] _submitLogin: Navegando a AuthGate (limpiando pila)');
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const AuthGate()),
         (route) => false,

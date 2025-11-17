@@ -11,11 +11,14 @@ class AuthGate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authController = Provider.of<AuthController>(context);
+    debugPrint('[AuthGate] build: isAuthenticated = [33m[1m[4m[7m[41m${authController.isAuthenticated}[0m, isLoading = ${authController.isLoading}, connectionError = ${authController.connectionErrorMessage}');
     if (authController.connectionErrorMessage != null) {
+      debugPrint('[AuthGate] build: Mostrando ConnectionErrorScreen');
       return ConnectionErrorScreen(message: authController.connectionErrorMessage);
     }
 
     if (authController.isLoading) {
+      debugPrint('[AuthGate] build: Mostrando pantalla de carga');
       return const Scaffold(
         body: Center(
           child: Column(
@@ -32,11 +35,12 @@ class AuthGate extends StatelessWidget {
 
     // 3. Si está autenticado, va a Home (¡Login directo!)
     if (authController.isAuthenticated) {
+      debugPrint('[AuthGate] build: Mostrando HomeScreen');
       return const HomeScreen();
     } 
-    
     // 4. Si no tiene token (o está expirado), va a WelcomeScreen
     else {
+      debugPrint('[AuthGate] build: Mostrando WelcomeScreen');
       return const WelcomeScreen();
     }
   }

@@ -9,8 +9,10 @@ import 'package:lagfrontend/utils/cookie_client.dart';
 import 'package:lagfrontend/services/auth_service.dart';
 import 'package:lagfrontend/services/i_auth_service.dart';
 import 'package:lagfrontend/services/quest_service.dart';
+
 import 'package:lagfrontend/services/message_service.dart';
 import 'package:lagfrontend/services/user_service.dart';
+import 'package:lagfrontend/services/connectivity_service.dart';
 import 'package:lagfrontend/views/auth/auth_gate.dart'; 
 import 'package:lagfrontend/theme/app_theme.dart';
 
@@ -19,6 +21,8 @@ void main() {
   runApp(
     MultiProvider(
       providers: [
+        // Servicio de conectividad global y reactivo
+        ChangeNotifierProvider(create: (_) => ConnectivityService()),
   // CookieClient persists HttpOnly cookies set by the server (refresh token)
   Provider<CookieClient>(create: (_) => CookieClient()),
   Provider<IAuthService>(create: (context) => AuthService(client: context.read<CookieClient>())),
@@ -124,31 +128,28 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
     // Only reload on subsequent resumes (when user returns to app)
     try {
+      final connectivity = Provider.of<ConnectivityService>(context, listen: false);
+      // Forzar chequeo de conexión reactivo al reanudar
+      connectivity.onAppResumed();
+
       final auth = Provider.of<AuthController>(context, listen: false);
-      
       // Verificar si estamos autenticados antes de recargar
       if (!auth.isAuthenticated) {
         debugPrint('⏯️ [$timestamp] [Main] Not authenticated, skipping reload');
         return;
       }
-      
       final mc = Provider.of<MessageController>(context, listen: false);
       final qc = Provider.of<QuestController>(context, listen: false);
-      
       Future.microtask(() async {
         debugPrint('🔄 [$timestamp] [Main] App resumed - reloading data usando refreshAllData...');
-        
         try {
-          // Usar el método centralizado para garantizar consistencia
           await auth.refreshAllData(
             messageController: mc,
             questController: qc,
           );
-          
           debugPrint('✅ [$timestamp] [Main] Data reload complete');
         } catch (e) {
           debugPrint('❌ [$timestamp] [Main] Error en refresco: $e');
-          // El ConnectivityService ya maneja los reintentos, solo registrar el error
         }
       });
     } catch (e) {

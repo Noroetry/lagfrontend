@@ -8,8 +8,11 @@ import 'package:lagfrontend/widgets/connection_status_banner.dart';
 import 'package:lagfrontend/views/home/widgets/home_settings_bar.dart';
 import 'package:lagfrontend/views/home/widgets/home_bottom_bar.dart';
 import 'package:lagfrontend/views/home/widgets/user_info_panel.dart';
-import 'package:lagfrontend/views/home/widgets/active_quests_panel.dart';
+
 import 'package:lagfrontend/views/home/widgets/unread_messages_panel.dart';
+import 'package:lagfrontend/views/home/widgets/active_quests_panel.dart';
+
+import 'package:lagfrontend/services/connectivity_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -26,9 +29,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    debugPrint('🔵 [HomeScreen.initState] Called');
+    debugPrint('🔵 [HomeScreen.initState] Called (hashCode=${identityHashCode(widget)})');
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      debugPrint('🔵 [HomeScreen.initState] PostFrameCallback executing');
+      debugPrint('🔵 [HomeScreen.initState] PostFrameCallback executing (hashCode=${identityHashCode(widget)})');
       _initializeHomeScreen();
     });
   }
@@ -189,73 +192,95 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _refreshData,
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 0.0, vertical: 12.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Connection status banner (solo visible cuando hay problemas)
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12.0),
-                  child: ConnectionStatusBanner(),
-                ),
-                const SizedBox(height: 8),
-
-                // Top settings bar with support icons
-                const HomeSettingsBar(),
-
-                const SizedBox(height: 12),
-
-                // User info panel
-                const UserInfoPanel(),
-
-                const SizedBox(height: 8),
-
-                // Messages section title
-                const SizedBox(height: 6),
-                Center(
-                  child: Text(
-                    'Mensajes pendientes',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      decoration: TextDecoration.underline,
+        child: Consumer<ConnectivityService>(
+          builder: (context, connectivity, _) {
+            if (connectivity.shouldBlockUI) {
+              // Bloquear la UI completamente si no hay conexión o backend arrancando
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 24),
+                    Text(
+                      connectivity.getConnectionStatusMessage(),
+                      style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
                     ),
-                  ),
+                    if (connectivity.status == ConnectionStatus.backendStarting)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8.0),
+                        child: Text(
+                          'El servidor está arrancando (puede tardar ~30s)',
+                          style: TextStyle(color: Colors.white70, fontSize: 14),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                  ],
                 ),
-                const SizedBox(height: 6),
-
-                // Unread messages panel
-                const UnreadMessagesPanel(),
-
-                const SizedBox(height: 8),
-
-                // Quests section title
-                const SizedBox(height: 6),
-                Center(
-                  child: Text(
-                    'Misiones',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      decoration: TextDecoration.underline,
+              );
+            }
+            // UI normal si hay conexión
+            return RefreshIndicator(
+              onRefresh: _refreshData,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 0.0, vertical: 12.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Connection status banner (solo visible cuando hay problemas)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 12.0),
+                      child: ConnectionStatusBanner(),
                     ),
-                  ),
+                    const SizedBox(height: 8),
+                    // Top settings bar with support icons
+                    const HomeSettingsBar(),
+                    const SizedBox(height: 12),
+                    // User info panel
+                    const UserInfoPanel(),
+                    const SizedBox(height: 8),
+                    // Messages section title
+                    const SizedBox(height: 6),
+                    Center(
+                      child: Text(
+                        'Mensajes pendientes',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    // Unread messages panel
+                    const UnreadMessagesPanel(),
+                    const SizedBox(height: 8),
+                    // Quests section title
+                    const SizedBox(height: 6),
+                    Center(
+                      child: Text(
+                        'Misiones',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    // Active quests panel
+                    const ActiveQuestsPanel(),
+                  ],
                 ),
-                const SizedBox(height: 6),
-
-                // Active quests panel
-                const ActiveQuestsPanel(),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         ),
       ),
       bottomNavigationBar: const SafeArea(

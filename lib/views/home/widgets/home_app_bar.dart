@@ -93,6 +93,7 @@ class HomeAppBar extends StatelessWidget {
             tooltip: 'Cerrar sesión',
             onPressed: () async {
               final navigator = Navigator.of(context);
+              debugPrint('[HomeAppBar] Logout: Mostrando diálogo de confirmación');
               final confirmed = await showDialog<bool>(
                 context: context,
                 builder: (ctx) => AlertDialog(
@@ -111,9 +112,15 @@ class HomeAppBar extends StatelessWidget {
                   ],
                 ),
               );
+              debugPrint('[HomeAppBar] Logout: confirmed = $confirmed');
               if (confirmed == true) {
-                if (!navigator.mounted) return;
+                if (!navigator.mounted) {
+                  debugPrint('[HomeAppBar] Logout: navigator no está montado, abortando');
+                  return;
+                }
+                debugPrint('[HomeAppBar] Logout: Llamando a authController.logout()');
                 authController.logout();
+                debugPrint('[HomeAppBar] Logout: Navegando a AuthGate (limpiando pila)');
                 navigator.pushAndRemoveUntil(
                   MaterialPageRoute(builder: (context) => const AuthGate()),
                   (Route<dynamic> route) => false,

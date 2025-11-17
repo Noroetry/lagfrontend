@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:lagfrontend/controllers/auth_controller.dart';
+import 'package:lagfrontend/services/connectivity_service.dart';
 
 /// Widget que muestra el estado de la conexión y permite reintentar.
 /// Se muestra como banner en la parte superior cuando hay problemas.
@@ -9,12 +9,10 @@ class ConnectionStatusBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AuthController>(
-      builder: (context, auth, _) {
-        final connectivity = auth.connectivity;
-        
+    return Consumer<ConnectivityService>(
+      builder: (context, connectivity, _) {
         // No mostrar nada si estamos conectados
-        if (connectivity.isConnected) {
+        if (connectivity.status == ConnectionStatus.connected) {
           return const SizedBox.shrink();
         }
 
@@ -23,7 +21,7 @@ class ConnectionStatusBanner extends StatelessWidget {
 
         Color backgroundColor;
         IconData icon;
-        
+
         if (failures < 3) {
           // Intentando reconectar
           backgroundColor = Colors.orange.shade700;
@@ -72,7 +70,7 @@ class ConnectionStatusBanner extends StatelessWidget {
               const SizedBox(width: 12),
               if (failures >= 3)
                 ElevatedButton(
-                  onPressed: () => _retryConnection(context, auth),
+                  onPressed: () => _retryConnection(context, connectivity),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
                     foregroundColor: backgroundColor,
@@ -87,21 +85,17 @@ class ConnectionStatusBanner extends StatelessWidget {
     );
   }
 
-  Future<void> _retryConnection(BuildContext context, AuthController auth) async {
+  Future<void> _retryConnection(BuildContext context, ConnectivityService connectivity) async {
     // Resetear el estado de conexión para forzar un nuevo intento
-    auth.connectivity.resetConnectionState();
-    
-    // Mostrar indicador de carga
+    connectivity.resetConnectionState();
     if (!context.mounted) return;
-    
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Verificando conexión...'),
         duration: Duration(seconds: 2),
       ),
     );
-
     // Intentar reconectar
-    await auth.retryConnection();
+    await connectivity.checkConnectivity(updateState: true, forceNotify: true);
   }
 }

@@ -10,6 +10,8 @@ import 'package:lagfrontend/services/connectivity_service.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 
 class AuthController extends ChangeNotifier {
+    bool _isLoggingOut = false;
+    bool get isLoggingOut => _isLoggingOut;
   final SecureStorage storage;
   final IAuthService _authService;
   final ConnectivityService _connectivity = ConnectivityService();
@@ -271,6 +273,8 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    _isLoggingOut = true;
+    notifyListeners();
     // First, try to inform server to invalidate refresh token
     try {
       await _authService.logout();
@@ -286,6 +290,7 @@ class AuthController extends ChangeNotifier {
     } catch (e) {
       if (kDebugMode) debugPrint('❌ [Auth Logout] Error al borrar token: $e');
     }
+    _isLoggingOut = false;
     notifyListeners();
   }
 
@@ -307,8 +312,8 @@ class AuthController extends ChangeNotifier {
     required dynamic messageController,
     required dynamic questController,
   }) async {
-    if (!isAuthenticated) {
-      if (kDebugMode) debugPrint('⚠️ [Auth.refreshAllData] Usuario no autenticado, saltando refresco');
+    if (!isAuthenticated || isLoggingOut) {
+      if (kDebugMode) debugPrint('⚠️ [Auth.refreshAllData] Usuario no autenticado o logout en curso, saltando refresco');
       return;
     }
 
@@ -325,9 +330,18 @@ class AuthController extends ChangeNotifier {
 
       // 2. Refrescar perfil de usuario (XP, nivel, etc.)
       final token = authToken;
+      if (!isAuthenticated || isLoggingOut) {
+        if (kDebugMode) debugPrint('⚠️ [$timestamp] [Auth.refreshAllData] Usuario no autenticado o logout en curso (tras conexión), abortando refresco');
+        return;
+      }
       if (token != null && token.isNotEmpty) {
         try {
           final updatedProfile = await userController.refreshProfile(token);
+          // Comprobar autenticación de nuevo tras petición asíncrona
+          if (!isAuthenticated || isLoggingOut) {
+            if (kDebugMode) debugPrint('⚠️ [$timestamp] [Auth.refreshAllData] Usuario no autenticado o logout en curso (tras refreshProfile), abortando refresco');
+            return;
+          }
           userController.setUser(updatedProfile, token);
           if (kDebugMode) debugPrint('✅ [$timestamp] [Auth.refreshAllData] Perfil actualizado');
         } catch (e) {
